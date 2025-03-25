@@ -1,0 +1,185 @@
+﻿@using CineScope.Shared.DTOs
+@using CineScope.Client.Services
+@inject NavigationManager NavigationManager
+@inject MoviePosterCacheService PosterCache
+@inject IJSRuntime JSRuntime
+
+<MudCard Elevation="2" Class="movie-card my-2" Style="height: 100%; max-width: 250px;" @onclick="@(() => GoToMovieDetails())">
+    <!-- Poster container with fixed aspect ratio -->
+    <div class="poster-container" style="position: relative; width: 100%; padding-top: 150%; overflow: hidden;">
+        <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+            @if (isLoadingPoster)
+            {
+                <div class="poster-skeleton">
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                </div>
+            }
+
+            <img src="@posterUrl"
+                 style="width: 100%; height: 100%; object-fit: cover; visibility: @(isLoadingPoster ? "hidden" : "visible");"
+                 alt="@Movie.Title"
+                 loading="lazy"
+                 @onload="HandleImageLoaded"
+                 @onerror="HandleImageError" />
+        </div>
+    </div>
+
+    <MudCardContent Class="pa-2">
+        <div class="d-flex flex-column gap-1">
+            <MudText Typo="Typo.subtitle1" Style="font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                @Movie.Title
+            </MudText>
+            <div class="d-flex justify-space-between align-center">
+                <MudText Typo="Typo.caption">@Movie.ReleaseDate.Year</MudText>
+                <MudRating ReadOnly="true" SelectedValue="@((int)Math.Round(Movie.AverageRating))" Color="Color.Primary" />
+            </div>
+            <MudText Typo="Typo.caption" Style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                @string.Join(", ", Movie.Genres ?? new List<string>())
+            </MudText>
+        </div>
+    </MudCardContent>
+
+    <MudCardActions Class="pa-2 pt-0">
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Primary"
+                   Size="Size.Small"
+                   OnClick="@GoToMovieDetails"
+                   Class="mr-2">
+            Details
+        </MudButton>
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Primary"
+                   Size="Size.Small"
+                   OnClick="@GoToWriteReview">
+            Review
+        </MudButton>
+    </MudCardActions>
+</MudCard>
+
+<style>
+    .movie-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        cursor: pointer;
+    }
+
+        .movie-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--mud-elevation-4);
+        }
+
+    .poster-skeleton {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+        background-color: var(--mud-palette-background-grey);
+    }
+</style>
+
+@code {
+    [Parameter]
+    public MovieDto Movie { get; set; } = new MovieDto();
+
+    private string posterUrl = string.Empty;
+    private bool isLoadingPoster = true;
+    private bool posterLoadAttempted = false;
+    private int loadAttemptCount = 0;
+    private const int MAX_LOAD_ATTEMPTS = 2;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPosterFromCache();
+    }
+
+    private async Task LoadPosterFromCache()
+    {
+        try
+        {
+            isLoadingPoster = true;
+            string originalUrl = GetOriginalPosterUrl();
+            posterUrl = await PosterCache.GetPosterUrlAsync(Movie.Id, originalUrl);
+
+            if (Movie.Genres != null && Movie.Genres.Any())
+            {
+                string fallbackUrl = string.Empty;
+
+                if (Movie.Genres.Contains("Action"))
+                    fallbackUrl = "https://cdn.pixabay.com/photo/2015/03/11/01/43/movie-667986_1280.jpg";
+                else if (Movie.Genres.Contains("Drama"))
+                    fallbackUrl = "https://cdn.pixabay.com/photo/2016/01/22/08/01/theater-1155201_1280.jpg";
+                else if (Movie.Genres.Contains("Sci-Fi"))
+                    fallbackUrl = "https://cdn.pixabay.com/photo/2017/07/15/19/42/manipulation-2507330_1280.jpg";
+
+                if (!string.IsNullOrEmpty(fallbackUrl))
+                {
+                    await PosterCache.SetFallbackUrlAsync(Movie.Id, fallbackUrl);
+                }
+            }
+
+            Console.WriteLine($"Poster URL for {Movie.Title}: {posterUrl}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading poster from cache: {ex.Message}");
+            posterUrl = GetOriginalPosterUrl();
+        }
+    }
+
+    private async Task HandleImageLoaded()
+    {
+        await PosterCache.RecordPosterLoadResultAsync(Movie.Id, true);
+        isLoadingPoster = false;
+        posterLoadAttempted = true;
+        StateHasChanged();
+        Console.WriteLine($"Poster loaded successfully for {Movie.Title}");
+    }
+
+    private async Task HandleImageError()
+    {
+        Console.WriteLine($"Poster load error for {Movie.Title}");
+        loadAttemptCount++;
+
+        if (loadAttemptCount < MAX_LOAD_ATTEMPTS)
+        {
+            string fallbackUrl = $"https://via.placeholder.com/300x450?text={Uri.EscapeDataString(Movie.Title ?? "No Title")}";
+            posterUrl = fallbackUrl;
+            await PosterCache.RecordPosterLoadResultAsync(Movie.Id, false);
+            StateHasChanged();
+        }
+        else
+        {
+            isLoadingPoster = false;
+            posterLoadAttempted = true;
+            await PosterCache.RecordPosterLoadResultAsync(Movie.Id, false);
+            await JSRuntime.InvokeVoidAsync("eval", $@"
+                document.querySelector('[data-movie-id=""{Movie.Id}""] .poster-container').style.backgroundColor = '#1a1a1a';
+                document.querySelector('[data-movie-id=""{Movie.Id}""] .poster-container').innerHTML =
+                    '<div style=""display: flex; height: 100%; justify-content: center; align-items: center; text-align: center; padding: 20px; color: #f5f5f1;"">' +
+                    '<div><div>Poster Unavailable</div><h3>{Movie.Title}</h3></div></div>';
+            ");
+            StateHasChanged();
+        }
+    }
+
+    private string GetOriginalPosterUrl()
+    {
+        if (!string.IsNullOrEmpty(Movie.PosterUrl) &&
+            (Movie.PosterUrl.StartsWith("http://") || Movie.PosterUrl.StartsWith("https://")))
+        {
+            return Movie.PosterUrl;
+        }
+
+        return $"https://via.placeholder.com/300x450?text={Uri.EscapeDataString(Movie.Title ?? "No Title")}";
+    }
+
+    private void GoToMovieDetails()
+    {
+        NavigationManager.NavigateTo($"/movie/{Movie.Id}");
+    }
+
+    private void GoToWriteReview()
+    {
+        NavigationManager.NavigateTo($"/movie/{Movie.Id}?action=review");
+    }
+}
