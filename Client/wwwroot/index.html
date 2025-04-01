@@ -28,21 +28,57 @@
     <link href="css/poster-cache.css" rel="stylesheet" />
 
     <!-- reCAPTCHA Script -->
-    <script src="https://www.google.com/recaptcha/api.js?render=6LezxwUrAAAAAAc9vWRlGmqOJ99Yn15gF5HZdG5f"></script>
-
-    <!-- Initialize reCAPTCHA v3 -->
     <script>
-        window.executeRecaptcha = async function (action) {
-            try {
-                const token = await grecaptcha.execute('6LezxwUrAAAAAAc9vWRlGmqOJ99Yn15gF5HZdG5f', { action: action });
-                console.log('reCAPTCHA token generated');
-                return token;
-            } catch (error) {
-                console.error('reCAPTCHA error:', error);
-                return null;
+        window.recaptchaFunctions = {
+            widgets: {},
+            render: function (elementId) {
+                console.log("Rendering reCAPTCHA v2 for", elementId);
+                try {
+                    const widgetId = grecaptcha.render(elementId, {
+                        'sitekey': '6Ld8oAYrAAAAAKxRXwgV4_1PMHv06IudnMlG1_Uh',
+                        'callback': function(token) {
+                            console.log("reCAPTCHA callback received token for", elementId);
+                            this.widgets[elementId] = {
+                                widgetId: widgetId,
+                                token: token
+                            };
+                        }.bind(this)
+                    });
+                    this.widgets[elementId] = { widgetId: widgetId, token: null };
+                    console.log("reCAPTCHA rendered successfully for", elementId);
+                } catch (e) {
+                    console.error("Error rendering reCAPTCHA:", e);
+                }
+            },
+            executeRecaptcha: async function (elementId) {
+                console.log("Getting reCAPTCHA token for", elementId || "default widget");
+                if (elementId && this.widgets[elementId]) {
+                    return this.widgets[elementId].token;
+                }
+                // For backward compatibility with existing code
+                return this.widgets['g-recaptcha']?.token;
+            },
+            reset: function (elementId) {
+                console.log("Resetting reCAPTCHA for", elementId || "all widgets");
+                try {
+                    if (elementId && this.widgets[elementId]) {
+                        grecaptcha.reset(this.widgets[elementId].widgetId);
+                        this.widgets[elementId].token = null;
+                    } else {
+                        // Reset all widgets
+                        Object.values(this.widgets).forEach(widget => {
+                            grecaptcha.reset(widget.widgetId);
+                            widget.token = null;
+                        });
+                    }
+                } catch (e) {
+                    console.error("Error resetting reCAPTCHA:", e);
+                }
             }
         };
     </script>
+    <script src="https://www.google.com/recaptcha/api.js?render=explicit" async defer></script>
+
 </head>
 
 <body>
@@ -61,9 +97,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Scripts -->
-    <script src="js/recaptcha.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
 </body>

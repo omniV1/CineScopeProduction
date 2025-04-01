@@ -198,51 +198,45 @@ namespace CineScope.Server.Controllers
             }
         }
 
-
-
         /// <summary>
-        /// Generates a JWT token for the authenticated user.
+        /// POST: api/Auth/login-with-captcha
+        /// Handles user login requests with reCAPTCHA verification.
         /// </summary>
-        /// <param name="user">The authenticated user</param>
-        /// <returns>JWT token string</returns>
-        private string GenerateJwtToken(User user)
+        /// <param name="request">Login information with captcha response</param>
+        /// <returns>Authentication result with token if successful</returns>
+        [HttpPost("login-with-captcha")]
+        public async Task<ActionResult<AuthResponse>> LoginWithCaptcha([FromBody] LoginWithCaptchaRequest request)
         {
-            // Get JWT configuration values
-            var jwtSecret = _configuration["JwtSettings:Secret"];
-            var jwtIssuer = _configuration["JwtSettings:Issuer"];
-            var jwtAudience = _configuration["JwtSettings:Audience"];
-            var jwtExpiryMinutes = int.Parse(_configuration["JwtSettings:ExpiryMinutes"]);
-
-            // Create security key using the secret
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            // Create claims for the token
-            var claims = new List<Claim>
+            // Validate the model state
+            if (!ModelState.IsValid)
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-                new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-            };
-
-            // Add role claims
-            foreach (var role in user.Roles)
-            {
-                claims.Add(new Claim(ClaimTypes.Role, role));
+                return BadRequest(ModelState);
             }
 
-            // Create the JWT token
-            var token = new JwtSecurityToken(
-                issuer: jwtIssuer,
-                audience: jwtAudience,
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(jwtExpiryMinutes),
-                signingCredentials: creds
-            );
+            // Verify reCAPTCHA
+            var isValidCaptcha = await _recaptchaService.VerifyAsync(request.RecaptchaResponse);
+            if (!isValidCaptcha)
+            {
+                return BadRequest(new AuthResponse
+                {
+                    Success = false,
+                    Message = "reCAPTCHA verification failed. Please try again."
+                });
+            }
 
-            // Return the serialized token
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            // Attempt to authenticate the user
+            var result = await _authService.LoginAsync(request.LoginRequest);
+
+            // Return appropriate response based on result
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+            else
+            {
+                // Return 401 Unauthorized for failed login attempts
+                return Unauthorized(result);
+            }
         }
 
         /// <summary>
@@ -291,6 +285,51 @@ namespace CineScope.Server.Controllers
                 // Return 400 Bad Request for registration failures
                 return BadRequest(result);
             }
+        }
+
+        /// <summary>
+        /// Generates a JWT token for the authenticated user.
+        /// </summary>
+        /// <param name="user">The authenticated user</param>
+        /// <returns>JWT token string</returns>
+        private string GenerateJwtToken(User user)
+        {
+            // Get JWT configuration values
+            var jwtSecret = _configuration["JwtSettings:Secret"];
+            var jwtIssuer = _configuration["JwtSettings:Issuer"];
+            var jwtAudience = _configuration["JwtSettings:Audience"];
+            var jwtExpiryMinutes = int.Parse(_configuration["JwtSettings:ExpiryMinutes"]);
+
+            // Create security key using the secret
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            // Create claims for the token
+            var claims = new List<Claim>
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id),
+                new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
+                new Claim(JwtRegisteredClaimNames.Email, user.Email),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            // Add role claims
+            foreach (var role in user.Roles)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, role));
+            }
+
+            // Create the JWT token
+            var token = new JwtSecurityToken(
+                issuer: jwtIssuer,
+                audience: jwtAudience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(jwtExpiryMinutes),
+                signingCredentials: creds
+            );
+
+            // Return the serialized token
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
     }
 }

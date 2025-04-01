@@ -2,9 +2,11 @@
 @using CineScope.Client.Services
 @using CineScope.Client.Services.Auth
 @using CineScope.Shared.Auth
+@using CineScope.Shared.DTOs
 @inject AuthService AuthService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
 
 <PageTitle>CineScope - Login</PageTitle>
 
@@ -27,6 +29,10 @@
 
                     <MudCheckBox T="bool" Label="Remember me" Color="Color.Primary"
                                  @bind-Checked="loginRequest.RememberMe" Class="ml-n2" />
+
+                    <div class="d-flex justify-center align-center my-6">
+                        <div id="g-recaptcha-login"></div>
+                    </div>
 
                     @if (!string.IsNullOrEmpty(errorMessage))
                     {
@@ -68,6 +74,24 @@
     /// </summary>
     private LoginRequest loginRequest = new LoginRequest();
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("recaptchaFunctions.render", "g-recaptcha-login");
+                Console.WriteLine("Login reCAPTCHA widget rendered");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error rendering login reCAPTCHA: {ex.Message}");
+                errorMessage = "Failed to initialize security check. Please refresh the page.";
+                StateHasChanged();
+            }
+        }
+    }
+
     /// <summary>
     /// Handles the login form submission.
     /// Uses the AuthService for authentication.
@@ -88,8 +112,18 @@
             isLoading = true;
             errorMessage = string.Empty;
 
+            var token = await JSRuntime.InvokeAsync<string>("recaptchaFunctions.executeRecaptcha", "g-recaptcha-login");
+            Console.WriteLine($"Got reCAPTCHA token: {(string.IsNullOrEmpty(token) ? "null" : "valid")}");
+
+            if (string.IsNullOrEmpty(token))
+            {
+                errorMessage = "Please complete the security check.";
+                Snackbar.Add(errorMessage, Severity.Warning);
+                return;
+            }
+
             // Use the AuthService to login
-            var result = await AuthService.Login(loginRequest);
+            var result = await AuthService.LoginWithCaptchaAsync(loginRequest, token);
 
             if (result.Success)
             {
@@ -97,6 +131,7 @@
                 Snackbar.Add("Login successful! Welcome to CineScope.", Severity.Success);
 
                 // Redirect to home page
+                await JSRuntime.InvokeVoidAsync("recaptchaFunctions.reset", "g-recaptcha-login");
                 NavigationManager.NavigateTo("/");
             }
             else
@@ -109,7 +144,7 @@
         catch (Exception ex)
         {
             // Handle exceptions
-            errorMessage = "An unexpected error occured. Please try again later.";
+            errorMessage = "An unexpected error occurred. Please try again later.";
             Snackbar.Add($"Error: {ex.Message}", Severity.Error);
         }
         finally

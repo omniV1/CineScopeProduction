@@ -53,7 +53,7 @@
 
             <!-- reCAPTCHA placed here, before alerts -->
             <div class="d-flex justify-center mt-4 mb-4">
-                <div id="review-recaptcha"></div>
+                <div id="g-recaptcha"></div>
             </div>
 
             @if (!string.IsNullOrEmpty(errorMessage))
@@ -141,12 +141,14 @@
         {
             try
             {
-                await JSRuntime.InvokeVoidAsync("recaptchaFunctions.render", "review-recaptcha");
+                await JSRuntime.InvokeVoidAsync("recaptchaFunctions.render");
+                Console.WriteLine("reCAPTCHA widget rendered");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error initializing reCAPTCHA: {ex.Message}");
+                Console.WriteLine($"Error rendering reCAPTCHA: {ex.Message}");
                 errorMessage = "Failed to initialize reCAPTCHA. Please refresh the page.";
+                StateHasChanged();
             }
         }
     }
@@ -207,7 +209,7 @@
         if (ratingValue == 0)
         {
             errorMessage = "Please select a rating";
-            Console.WriteLine("Rating validation failed - no stars selected");
+            Snackbar.Add(errorMessage, Severity.Warning);
             return;
         }
 
@@ -216,12 +218,12 @@
             isLoading = true;
             errorMessage = string.Empty;
 
-            // Get reCAPTCHA v3 token
-            var token = await JSRuntime.InvokeAsync<string>("executeRecaptcha", "submit_review");
+            var token = await JSRuntime.InvokeAsync<string>("recaptchaFunctions.executeRecaptcha");
+            Console.WriteLine($"Got reCAPTCHA token: {(string.IsNullOrEmpty(token) ? "null" : "valid")}");
 
             if (string.IsNullOrEmpty(token))
             {
-                errorMessage = "Failed to verify human user. Please try again.";
+                errorMessage = "Please complete the reCAPTCHA verification.";
                 Snackbar.Add(errorMessage, Severity.Warning);
                 return;
             }
@@ -256,7 +258,10 @@
                     RecaptchaResponse = token
                 };
 
+            Console.WriteLine("Sending review with captcha token...");
             var response = await Http.PostAsJsonAsync("api/Review/with-captcha", reviewWithCaptcha);
+            var responseContent = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Server response: {response.StatusCode}, Content: {responseContent}");
 
             if (response.IsSuccessStatusCode)
             {
@@ -272,8 +277,6 @@
             }
             else
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Error content: {errorContent}");
                 errorMessage = $"Failed to submit review: {response.StatusCode}";
                 Snackbar.Add(errorMessage, Severity.Error);
             }
@@ -297,7 +300,17 @@
         review.Text = string.Empty;
         errorMessage = string.Empty;
         contentWarning = null;
-        await JSRuntime.InvokeVoidAsync("recaptchaFunctions.reset");
+        
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("recaptchaFunctions.reset");
+        }
+        catch (Exception ex)
+        {
+            // Log the error but don't prevent the form from resetting
+            Console.WriteLine($"Error resetting reCAPTCHA: {ex.Message}");
+        }
+        
         StateHasChanged();
     }
 

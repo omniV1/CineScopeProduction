@@ -33,17 +33,17 @@
                                   Variant="Variant.Outlined" InputType="InputType.Password"
                                   Class="my-3" />
 
-                    <MudTextField T="string" Label="Confirm Password" @bind-Value="registerRequest.ConfirmPassword"
-                                  Required="true" RequiredError="Please confirm your password"
-                                  Validation="@(new Func<string, IEnumerable<string>>(ValidateConfirmPassword))"
-                                  Variant="Variant.Outlined" InputType="InputType.Password"
-                                  Class="my-3" />
+                    <MudTextField T="string" Label="Confirm Password"
+                                @bind-Value="registerRequest.ConfirmPassword"
+                                For="@(() => registerRequest.ConfirmPassword)"
+                                Required="true"
+                                RequiredError="Please confirm your password!"
+                                InputType="InputType.Password"
+                                Variant="Variant.Outlined" Class="my-3" />
 
-                    <!-- reCAPTCHA element -->
-                    <div class="mt-4 mb-4">
-    <div class="g-recaptcha" data-sitekey="6LezxwUrAAAAAAc9vWRlGmqOJ99Yn15gF5HZdG5f"></div>
-</div>
-
+                    <div class="d-flex justify-center align-center my-6">
+                        <div id="g-recaptcha-register"></div>
+                    </div>
 
                     @if (!string.IsNullOrEmpty(errorMessage))
                     {
@@ -158,11 +158,11 @@
 
             // Get reCAPTCHA response
             var recaptchaResponse = await JSRuntime.InvokeAsync<string>(
-                "recaptchaFunctions.getResponse");
+                "recaptchaFunctions.executeRecaptcha", "g-recaptcha-register");
 
             if (string.IsNullOrEmpty(recaptchaResponse))
             {
-                errorMessage = "Please complete the reCAPTCHA verification.";
+                errorMessage = "Failed to verify human user. Please try again.";
                 Snackbar.Add(errorMessage, Severity.Warning);
                 isLoading = false;
                 return;
@@ -184,9 +184,6 @@
                 // Handle error response
                 errorMessage = result.Message ?? "Registration failed. Please try again.";
                 Snackbar.Add(errorMessage, Severity.Error);
-
-                // Reset the captcha
-                await JSRuntime.InvokeVoidAsync("recaptchaFunctions.reset");
             }
         }
         catch (Exception ex)
@@ -194,14 +191,29 @@
             // Handle exceptions
             errorMessage = "An error occurred during registration. Please try again.";
             Snackbar.Add($"Error: {ex.Message}", Severity.Error);
-
-            // Reset the captcha
-            await JSRuntime.InvokeVoidAsync("recaptchaFunctions.reset");
         }
         finally
         {
             // Reset loading state
             isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("recaptchaFunctions.render", "g-recaptcha-register");
+                Console.WriteLine("Register reCAPTCHA widget rendered");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error rendering register reCAPTCHA: {ex.Message}");
+                errorMessage = "Failed to initialize security check. Please refresh the page.";
+                StateHasChanged();
+            }
         }
     }
 }

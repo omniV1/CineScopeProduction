@@ -48,7 +48,7 @@ public class RecaptchaService
             {
                 var content = new FormUrlEncodedContent(new[]
                 {
-                    new KeyValuePair<string, string>("secret", "6LezxwUrAAAAAAc9vWRlGmqOJ99Yn15gF5HZdG5f"),
+                    new KeyValuePair<string, string>("secret", "6Ld8oAYrAAAAAMGmyPZcWAKsHFMU8KA2J1aPOcaP"),
                     new KeyValuePair<string, string>("response", recaptchaResponse)
                 });
 

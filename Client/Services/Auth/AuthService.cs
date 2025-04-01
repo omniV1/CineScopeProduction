@@ -604,7 +604,55 @@ namespace CineScope.Client.Services.Auth
             }
         }
 
+        /// <summary>
+        /// Authenticates a user based on login credentials with reCAPTCHA verification.
+        /// </summary>
+        /// <param name="loginRequest">The login credentials</param>
+        /// <param name="recaptchaToken">The reCAPTCHA response token</param>
+        /// <returns>Authentication result</returns>
+        public async Task<AuthResponse> LoginWithCaptchaAsync(LoginRequest loginRequest, string recaptchaToken)
+        {
+            try
+            {
+                Console.WriteLine($"Attempting login with reCAPTCHA for user: {loginRequest.Username}");
 
+                // Create the request object
+                var request = new LoginWithCaptchaRequest
+                {
+                    LoginRequest = loginRequest,
+                    RecaptchaResponse = recaptchaToken
+                };
 
+                // Send login request to the API
+                var response = await _httpClient.PostAsJsonAsync("api/Auth/login-with-captcha", request);
+
+                Console.WriteLine($"Login response status: {response.StatusCode}");
+
+                // Parse the response
+                var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
+
+                // If login was successful, store the token and notify the auth state provider
+                if (result.Success)
+                {
+                    Console.WriteLine("Login successful, updating authentication state");
+                    await _authStateProvider.NotifyUserAuthentication(result.Token, result.User);
+                }
+                else
+                {
+                    Console.WriteLine($"Login failed: {result.Message}");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception in LoginWithCaptcha: {ex.Message}");
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = $"An error occurred during login: {ex.Message}"
+                };
+            }
+        }
     }
 }
