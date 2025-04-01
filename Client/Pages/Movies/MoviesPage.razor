@@ -81,12 +81,9 @@
                         <MudText Typo="Typo.body2" Color="Color.Secondary">@movie.ReleaseDate.Year</MudText>
                         <div class="d-flex align-center mt-2">
                             <MudRating ReadOnly="true" 
-                                     Value="@movie.AverageRating" 
-                                     Max="5"
-                                     Color="Color.Warning"
-                                     Size="Size.Small"
-                                     FullIcon="@Icons.Material.Filled.Star"
-                                     EmptyIcon="@Icons.Material.Filled.StarBorder" />
+                                     SelectedValue="@((int)Math.Round(movie.AverageRating))" 
+                                     Color="Color.Primary"
+                                     Size="Size.Small" />
                             <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-2">
                                 @movie.AverageRating.ToString("0.0")
                             </MudText>
