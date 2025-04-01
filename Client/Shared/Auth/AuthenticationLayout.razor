@@ -89,13 +89,12 @@
                         <MudMenu AnchorOrigin="Origin.BottomCenter">
                             <ActivatorContent>
                                 <div style="cursor: pointer;" class="px-4 pb-2">
+                                    <p>@context.User.Identity.Name</p>
                                     <ProfilePictureDisplay Url="@GetProfilePictureUrl(context)"
                                                            Username="@context.User.Identity.Name"
                                                            Size="Size.Medium"
                                                            Width="40"
-                                                           Height="40">
-                                        @context.User.Identity.Name
-                                    </ProfilePictureDisplay>
+                                                           Height="40" />
                                 </div>
                             </ActivatorContent>
                             <ChildContent>
