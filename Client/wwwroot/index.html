@@ -28,8 +28,12 @@
     <link href="css/poster-cache.css" rel="stylesheet" />
 
     <!-- reCAPTCHA Script -->
-    <script src="https://www.google.com/recaptcha/api.js?render=explicit" async defer></script>
+    <script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit" async defer></script>
     <script>
+        function onRecaptchaLoad() {
+            console.log("reCAPTCHA loaded");
+        }
+        
         window.recaptchaFunctions = {
             widgets: {},
             render: function (elementId) {
@@ -53,6 +57,9 @@
                         console.log("Found element, rendering reCAPTCHA...");
                         const widgetId = grecaptcha.render(elementId, {
                             'sitekey': '6Ld8oAYrAAAAAKxRXwgV4_1PMHv06IudnMlG1_Uh',
+                            'size': 'normal',
+                            'theme': 'dark',
+                            'badge': 'inline',
                             'callback': (token) => {
                                 console.log("reCAPTCHA callback received token");
                                 this.widgets[elementId] = {

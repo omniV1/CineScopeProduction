@@ -31,7 +31,12 @@
                                  @bind-Checked="loginRequest.RememberMe" Class="ml-n2" />
 
                     <div class="d-flex justify-center align-center my-6">
-                        <div id="g-recaptcha-login"></div>
+                        <div class="g-recaptcha" 
+                             data-sitekey="6Ld8oAYrAAAAAKxRXwgV4_1PMHv06IudnMlG1_Uh" 
+                             data-theme="dark"
+                             data-size="normal"
+                             id="g-recaptcha-login">
+                        </div>
                     </div>
 
                     @if (!string.IsNullOrEmpty(errorMessage))
