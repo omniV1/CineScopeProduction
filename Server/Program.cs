@@ -8,8 +8,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using CineScope.Shared.Config;
+using Azure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
+
+
 
 // Configure MVC and Razor Pages
 builder.Services.AddControllersWithViews();
@@ -38,6 +42,8 @@ builder.Services.AddScoped<ContentFilterService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddHttpClient<RecaptchaService>();
 builder.Services.AddScoped<RecaptchaService>();
+builder.Services.Configure<RecaptchaSettings>(
+    builder.Configuration.GetSection("Recaptcha"));
 
 builder.Services.AddAuthentication(options =>
 {

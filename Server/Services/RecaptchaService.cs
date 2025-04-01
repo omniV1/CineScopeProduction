@@ -1,90 +1,123 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Text.Json;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+﻿using CineScope.Shared.Config;
+using CineScope.Shared.Models;
+using Microsoft.Extensions.Options;
 
-namespace CineScope.Server.Services
+public class RecaptchaService
 {
-    public class RecaptchaService
+    private readonly HttpClient _httpClient;
+    private readonly RecaptchaSettings _settings;
+    private readonly ILogger<RecaptchaService> _logger;
+    private readonly Dictionary<string, int> _rateLimiter = new();
+    private DateTime _rateLimiterResetTime = DateTime.UtcNow;
+
+    public RecaptchaService(
+        HttpClient httpClient,
+        IOptions<RecaptchaSettings> settings,
+        ILogger<RecaptchaService> logger)
     {
-        private readonly HttpClient _httpClient;
-        private readonly string _secretKey;
-        private readonly ILogger<RecaptchaService> _logger;
-        private readonly bool _isEnabled;
+        _httpClient = httpClient;
+        _settings = settings.Value;
+        _logger = logger;
 
-        public RecaptchaService(HttpClient httpClient, IConfiguration configuration, ILogger<RecaptchaService> logger)
+        _httpClient.Timeout = TimeSpan.FromSeconds(_settings.RequestTimeoutSeconds);
+    }
+
+    public async Task<bool> VerifyAsync(string recaptchaResponse)
+    {
+        if (!_settings.Enabled)
         {
-            _httpClient = httpClient;
-            _secretKey = configuration["Recaptcha:SecretKey"];
-            _logger = logger;
-            _isEnabled = !string.IsNullOrEmpty(_secretKey);
-
-            if (!_isEnabled)
-            {
-                _logger.LogWarning("reCAPTCHA is not configured. Verification will be bypassed.");
-            }
+            _logger.LogWarning("reCAPTCHA verification bypassed - service disabled");
+            return true;
         }
 
-        public async Task<bool> VerifyAsync(string recaptchaResponse)
+        if (string.IsNullOrEmpty(recaptchaResponse))
         {
-            if (!_isEnabled)
-            {
-                _logger.LogWarning("reCAPTCHA verification bypassed due to missing configuration.");
-                return true; // Skip verification if not configured
-            }
+            _logger.LogWarning("Empty reCAPTCHA response received");
+            return false;
+        }
 
-            if (string.IsNullOrEmpty(recaptchaResponse))
-            {
-                _logger.LogWarning("Empty reCAPTCHA response received.");
-                return false;
-            }
+        if (!CheckRateLimit())
+        {
+            _logger.LogWarning("reCAPTCHA rate limit exceeded");
+            return false;
+        }
 
+        for (int attempt = 1; attempt <= _settings.MaxRetries; attempt++)
+        {
             try
             {
                 var content = new FormUrlEncodedContent(new[]
                 {
-                    new KeyValuePair<string, string>("secret", _secretKey),
+                    new KeyValuePair<string, string>("secret", "6LezxwUrAAAAAAc9vWRlGmqOJ99Yn15gF5HZdG5f"),
                     new KeyValuePair<string, string>("response", recaptchaResponse)
                 });
 
-                var response = await _httpClient.PostAsync(
-                    "https://www.google.com/recaptcha/api/siteverify", content);
+                var response = await _httpClient.PostAsync(_settings.VerifyUrl, content);
 
                 if (!response.IsSuccessStatusCode)
                 {
                     _logger.LogError("reCAPTCHA verification failed with status code: {StatusCode}",
                         response.StatusCode);
+
+                    if (attempt < _settings.MaxRetries)
+                    {
+                        await Task.Delay(_settings.RetryDelayMilliseconds);
+                        continue;
+                    }
+
                     return false;
                 }
 
-                var responseJson = await response.Content.ReadAsStringAsync();
-                var result = JsonSerializer.Deserialize<RecaptchaResponse>(responseJson,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var result = await response.Content.ReadFromJsonAsync<RecaptchaResponse>();
 
                 if (result?.Success != true)
                 {
                     _logger.LogWarning("reCAPTCHA verification failed. Error codes: {ErrorCodes}",
                         string.Join(", ", result?.ErrorCodes ?? Array.Empty<string>()));
+                    return false;
                 }
 
-                return result?.Success ?? false;
+                return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Exception occurred during reCAPTCHA verification");
-                return false;
+                _logger.LogError(ex, "reCAPTCHA verification attempt {Attempt} failed", attempt);
+
+                if (attempt < _settings.MaxRetries)
+                {
+                    await Task.Delay(_settings.RetryDelayMilliseconds);
+                    continue;
+                }
             }
         }
 
-        private class RecaptchaResponse
+        return false;
+    }
+
+    private bool CheckRateLimit()
+    {
+        var now = DateTime.UtcNow;
+        var clientIp = "default"; // In a real app, get this from the request
+
+        // Reset rate limiter every minute
+        if ((now - _rateLimiterResetTime).TotalMinutes >= 1)
         {
-            public bool Success { get; set; }
-            public DateTime? ChallengeTs { get; set; }
-            public string Hostname { get; set; }
-            public string[] ErrorCodes { get; set; }
+            _rateLimiter.Clear();
+            _rateLimiterResetTime = now;
         }
+
+        if (!_rateLimiter.ContainsKey(clientIp))
+        {
+            _rateLimiter[clientIp] = 1;
+            return true;
+        }
+
+        if (_rateLimiter[clientIp] >= _settings.RateLimitPerMinute)
+        {
+            return false;
+        }
+
+        _rateLimiter[clientIp]++;
+        return true;
     }
 }

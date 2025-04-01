@@ -2,9 +2,11 @@
 @using CineScope.Client.Services
 @using CineScope.Client.Services.Auth
 @using CineScope.Shared.DTOs
+@using CineScope.Shared.Models
 @inject HttpClient Http
 @inject ISnackbar Snackbar
 @inject AuthService AuthService
+@inject IJSRuntime JSRuntime
 
 <MudCard Elevation="3" Class="create-review-form mb-4">
     <MudCardHeader>
@@ -31,16 +33,16 @@
                         @for (int i = 1; i <= 5; i++)
                         {
                             var starValue = i;
-                            <div @onclick="() => SetRating(starValue)" style="cursor: pointer; padding: 4px;">
+                                <div @onclick="() => SetRating(starValue)" style="cursor: pointer; padding: 4px;">
                                 @if (ratingValue >= starValue)
                                 {
-                                    <MudIcon Icon="@Icons.Material.Filled.Star" Color="Color.Warning" Size="Size.Large" />
+                                            <MudIcon Icon="@Icons.Material.Filled.Star" Color="Color.Warning" Size="Size.Large" />
                                 }
                                 else
                                 {
-                                    <MudIcon Icon="@Icons.Material.Filled.StarOutline" Color="Color.Warning" Size="Size.Large" />
+                                            <MudIcon Icon="@Icons.Material.Filled.StarOutline" Color="Color.Warning" Size="Size.Large" />
                                 }
-                            </div>
+                                </div>
                         }
                         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-2">
                             @(ratingValue > 0 ? $"{ratingValue} star{(ratingValue > 1 ? "s" : "")}" : "Select a rating")
@@ -49,20 +51,25 @@
                 </div>
             </MudPaper>
 
+            <!-- reCAPTCHA placed here, before alerts -->
+            <div class="d-flex justify-center mt-4 mb-4">
+                <div id="review-recaptcha"></div>
+            </div>
+
             @if (!string.IsNullOrEmpty(errorMessage))
             {
-                <MudAlert Severity="Severity.Error" Class="mt-4" Dense="true">@errorMessage</MudAlert>
+                    <MudAlert Severity="Severity.Error" Class="mt-4" Dense="true">@errorMessage</MudAlert>
             }
 
             @if (contentWarning != null && contentWarning.Any())
             {
-                <MudAlert Severity="Severity.Warning" Class="mt-4">
-                    <MudText>Content Warning</MudText>
-                    <MudText Typo="Typo.body2">
-                        Your review contains content that may violate our community guidelines.
-                        Please remove the following terms: @string.Join(", ", contentWarning)
-                    </MudText>
-                </MudAlert>
+                    <MudAlert Severity="Severity.Warning" Class="mt-4">
+                        <MudText>Content Warning</MudText>
+                        <MudText Typo="Typo.body2">
+                            Your review contains content that may violate our community guidelines.
+                            Please remove the following terms: @string.Join(", ", contentWarning)
+                        </MudText>
+                    </MudAlert>
             }
         </MudCardContent>
 
@@ -73,12 +80,12 @@
                        Disabled="@(isLoading || ratingValue == 0)" OnClick="@SubmitReview">
                 @if (isLoading)
                 {
-                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
-                    <MudText Class="ms-2">Submitting</MudText>
+                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                        <MudText Class="ms-2">Submitting</MudText>
                 }
                 else
                 {
-                    <MudText>Submit Review</MudText>
+                        <MudText>Submit Review</MudText>
                 }
             </MudButton>
         </MudCardActions>
@@ -93,27 +100,10 @@
     private bool isLoading = false;
     private List<string> contentWarning = null;
 
-    /// <summary>
-    /// The ID of the movie being reviewed.
-    /// </summary>
-    [Parameter]
-    public string MovieId { get; set; } = string.Empty;
+    [Parameter] public string MovieId { get; set; } = string.Empty;
+    [Parameter] public string CurrentUserId { get; set; } = string.Empty;
+    [Parameter] public EventCallback<ReviewDto> OnReviewSubmitted { get; set; }
 
-    /// <summary>
-    /// The ID of the current user creating the review.
-    /// </summary>
-    [Parameter]
-    public string CurrentUserId { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Event callback triggered when a review is successfully submitted.
-    /// </summary>
-    [Parameter]
-    public EventCallback<ReviewDto> OnReviewSubmitted { get; set; }
-
-    /// <summary>
-    /// Review data model.
-    /// </summary>
     private ReviewDto review = new()
         {
             Rating = 0,
@@ -121,24 +111,13 @@
             CreatedAt = DateTime.Now
         };
 
-    /// <summary>
-    /// Rating value for the star rating control.
-    /// We use this separate property because MudRating works with int but our ReviewDto needs the right type.
-    /// </summary>
     private int ratingValue = 0;
 
-    /// <summary>
-    /// Initializes the component.
-    /// Sets up the review with the movie ID and current user ID.
-    /// </summary>
     protected override async Task OnInitializedAsync()
     {
         Console.WriteLine($"CreateReview initialized with MovieId: {MovieId}");
-
-        // Set the movie ID from parameter
         review.MovieId = MovieId;
 
-        // Set the user ID from parameter or get current user
         if (string.IsNullOrEmpty(CurrentUserId))
         {
             var user = await AuthService.GetCurrentUser();
@@ -156,10 +135,22 @@
         }
     }
 
-    /// <summary>
-    /// Sets the rating value directly through manual star interaction.
-    /// This bypasses the MudRating component's binding issues.
-    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("recaptchaFunctions.render", "review-recaptcha");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing reCAPTCHA: {ex.Message}");
+                errorMessage = "Failed to initialize reCAPTCHA. Please refresh the page.";
+            }
+        }
+    }
+
     private void SetRating(int value)
     {
         Console.WriteLine($"Setting rating from {ratingValue} to {value}");
@@ -167,24 +158,16 @@
         StateHasChanged();
     }
 
-    /// <summary>
-    /// Validates review content against banned word list.
-    /// </summary>
     private async Task<bool> ValidateContent()
     {
         try
         {
             Console.WriteLine("Validating review content...");
-
-            // Call the content filter API
             var response = await Http.PostAsJsonAsync("api/ContentFilter/validate", review.Text);
 
             if (response.IsSuccessStatusCode)
             {
-                // Parse the response
                 var result = await response.Content.ReadFromJsonAsync<ContentFilterResult>();
-
-                // If content is approved, return true
                 if (result.IsApproved)
                 {
                     contentWarning = null;
@@ -192,7 +175,6 @@
                     return true;
                 }
 
-                // If content is not approved, store the violation words
                 contentWarning = result.ViolationWords;
                 Console.WriteLine($"Content validation failed: {string.Join(", ", contentWarning)}");
                 return false;
@@ -206,26 +188,15 @@
         }
         catch (Exception ex)
         {
-            // Log the error (in a real app)
             Console.WriteLine($"Content validation error: {ex.Message}");
-
-            // For testing purposes, allow content in case of API failure
             return true;
         }
     }
 
-    /// <summary>
-    /// Submits the review after validation.
-    /// </summary>
     private async Task SubmitReview()
     {
-        // Ensure auth token is attached to the request
         await AuthService.EnsureAuthHeaderAsync();
-
-        // Validate the form
         await form.Validate();
-
-        Console.WriteLine($"After validation - success={success}, errors={string.Join(", ", errors)}");
 
         if (!success)
         {
@@ -233,7 +204,6 @@
             return;
         }
 
-        // Check if user has selected a rating
         if (ratingValue == 0)
         {
             errorMessage = "Please select a rating";
@@ -243,21 +213,26 @@
 
         try
         {
-            // Set loading state
             isLoading = true;
             errorMessage = string.Empty;
-            Console.WriteLine("Starting review submission process");
 
-            // First, validate content against banned word list
+            // Get reCAPTCHA v3 token
+            var token = await JSRuntime.InvokeAsync<string>("executeRecaptcha", "submit_review");
+
+            if (string.IsNullOrEmpty(token))
+            {
+                errorMessage = "Failed to verify human user. Please try again.";
+                Snackbar.Add(errorMessage, Severity.Warning);
+                return;
+            }
+
             if (!await ValidateContent())
             {
                 errorMessage = "Review contains inappropriate content. Please revise.";
                 Snackbar.Add(errorMessage, Severity.Warning);
-                isLoading = false;
                 return;
             }
 
-            // Ensure we have a user ID
             if (string.IsNullOrEmpty(review.UserId))
             {
                 var user = await AuthService.GetCurrentUser();
@@ -265,46 +240,38 @@
                 {
                     errorMessage = "You must be logged in to submit a review.";
                     Snackbar.Add(errorMessage, Severity.Error);
-                    isLoading = false;
                     return;
                 }
                 review.UserId = user.Id;
                 review.Username = user.Username;
             }
 
-            // Set the rating from the MudRating component
             review.Rating = (double)ratingValue;
-
-            // Set current date/time
             review.CreatedAt = DateTime.Now;
 
-            Console.WriteLine($"Submitting review: MovieId={review.MovieId}, UserId={review.UserId}, Rating={review.Rating}");
+            // Create review with captcha request
+            var reviewWithCaptcha = new ReviewWithCaptchaRequest
+                {
+                    Review = review,
+                    RecaptchaResponse = token
+                };
 
-            // Send review to the API
-            var response = await Http.PostAsJsonAsync("api/Review", review);
-
-            Console.WriteLine($"Review submission response: {response.StatusCode}");
+            var response = await Http.PostAsJsonAsync("api/Review/with-captcha", reviewWithCaptcha);
 
             if (response.IsSuccessStatusCode)
             {
-                // Parse the created review from response
                 var createdReview = await response.Content.ReadFromJsonAsync<ReviewDto>();
-
-                // Show success message
                 Snackbar.Add("Review submitted successfully!", Severity.Success);
 
-                // Notify parent component
                 if (createdReview != null)
                 {
                     await OnReviewSubmitted.InvokeAsync(createdReview);
                 }
 
-                // Reset the form
                 Reset();
             }
             else
             {
-                // Handle error response
                 var errorContent = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"Error content: {errorContent}");
                 errorMessage = $"Failed to submit review: {response.StatusCode}";
@@ -313,34 +280,27 @@
         }
         catch (Exception ex)
         {
-            // Handle exceptions
             errorMessage = "An error occurred. Please try again.";
             Console.WriteLine($"Review submission exception: {ex.Message}");
             Snackbar.Add($"Error: {ex.Message}", Severity.Error);
         }
         finally
         {
-            // Reset loading state
             isLoading = false;
         }
     }
 
-    /// <summary>
-    /// Resets the review form to default values.
-    /// </summary>
-    private void Reset()
+    private async Task Reset()
     {
         review.Rating = 0;
         ratingValue = 0;
         review.Text = string.Empty;
         errorMessage = string.Empty;
         contentWarning = null;
+        await JSRuntime.InvokeVoidAsync("recaptchaFunctions.reset");
         StateHasChanged();
     }
 
-    /// <summary>
-    /// Class to represent content filter API response.
-    /// </summary>
     private class ContentFilterResult
     {
         public bool IsApproved { get; set; }

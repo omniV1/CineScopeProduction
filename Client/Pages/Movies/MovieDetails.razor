@@ -16,19 +16,6 @@
 
 <PageTitle>@(movie?.Title ?? "Movie Details") - CineScope</PageTitle>
 
-<!-- Authentication Debug Panel -->
-<AuthorizeView>
-    <NotAuthorized>
-        <MudAlert Severity="Severity.Warning" Class="mb-4">
-            <MudText>Authentication Status: <strong>Not logged in</strong></MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       OnClick="@(() => NavigationManager.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}"))">
-                Log In Now
-            </MudButton>
-        </MudAlert>
-    </NotAuthorized>
-</AuthorizeView>
-
 @if (isLoading)
 {
     <div class="d-flex justify-center my-8">
@@ -156,8 +143,7 @@ else
     }
     else
     {
-        <div class="d-flex justify-space-between align-center mb-4">
-            <MudText Typo="Typo.h5">Reviews</MudText>
+        <div>
             <MudButton Variant="Variant.Text" Color="Color.Primary"
                        OnClick="@(() => LoadReviews(true))"
                        StartIcon="@Icons.Material.Filled.Refresh">
@@ -182,6 +168,7 @@ else
         </AuthorizeView>
     }
 }
+
 
 @code {
     // Add AuthStateProvider so we can diagnose auth issues
@@ -334,7 +321,7 @@ else
                 // For development purposes only - use sample data if API fails
                 if (IsDevelopmentEnvironment())
                 {
-                    reviews = GenerateSampleReviews();
+                   
                     Console.WriteLine("Using sample reviews due to API error");
                 }
                 else
@@ -350,7 +337,7 @@ else
             // For development purposes only - use sample data if exception occurs
             if (IsDevelopmentEnvironment())
             {
-                reviews = GenerateSampleReviews();
+                
                 Console.WriteLine("Using sample reviews due to exception");
             }
             else
@@ -455,46 +442,6 @@ else
         // In a real application, you would use configuration to check this
         // For this demo, we'll return true
         return true;
-    }
-
-    /// <summary>
-    /// Generates sample review data for development and testing
-    /// </summary>
-    private List<ReviewDto> GenerateSampleReviews()
-    {
-        return new List<ReviewDto>
-        {
-            new()
-            {
-                Id = "sample1",
-                MovieId = MovieId,
-                UserId = currentUserId,  // Use the current user ID for the sample review
-                Username = "MovieFan42",
-                Rating = 5,
-                Text = "This is one of the best films I've seen this year. The direction is flawless and the performances are outstanding. Highly recommended!",
-                CreatedAt = DateTime.Now.AddDays(-5)
-            },
-            new()
-            {
-                Id = "sample2",
-                MovieId = MovieId,
-                UserId = "user2",
-                Username = "CinemaLover",
-                Rating = 4,
-                Text = "Great movie with amazing visuals and a compelling story. The only reason I didn't give it 5 stars is because the ending felt a bit rushed.",
-                CreatedAt = DateTime.Now.AddDays(-10)
-            },
-            new()
-            {
-                Id = "sample3",
-                MovieId = MovieId,
-                UserId = "user3",
-                Username = "FilmCritic101",
-                Rating = 3,
-                Text = "Decent film but nothing groundbreaking. The cinematography was beautiful but the plot had some major holes that were hard to ignore.",
-                CreatedAt = DateTime.Now.AddDays(-15)
-            }
-        };
     }
 
     /// <summary>
