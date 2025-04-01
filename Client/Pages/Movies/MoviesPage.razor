@@ -16,57 +16,49 @@
             <MudPaper Elevation="0" Class="pb-4">
                 <MudText Typo="Typo.h4" Class="mb-4">Browse Movies</MudText>
 
-                <!-- Modernized search and filter controls using our custom alignment styles -->
-                <div class="search-filter-container">
+                <div class="search-controls">
                     <!-- Search Box -->
-                    <div class="control-wrapper">
-                        <MudTextField @bind-Value="searchTerm"
-                                      Label="Search Movies.."
-                                      Variant="Variant.Outlined"
-                                      Adornment="Adornment.End"
-                                      AdornmentIcon="@Icons.Material.Filled.Search"
-                                      IconSize="Size.Medium"
-                                      Style="min-width: 200px; flex: 1;"
-                                      OnKeyDown="@HandleSearchKeyDown" />
-                    </div>
+                    <MudTextField @bind-Value="searchTerm"
+                                Label="Search Movies.."
+                                Variant="Variant.Outlined"
+                                Adornment="Adornment.End"
+                                AdornmentIcon="@Icons.Material.Filled.Search"
+                                IconSize="Size.Medium"
+                                Class="search-input"
+                                OnKeyDown="@HandleSearchKeyDown" />
 
                     <!-- Genre Filter -->
-                    <div class="control-wrapper" style="margin-left: 8px;">
-                        <MudSelect T="string"
-                                   Label="Select a genre.."
-                                   Value="@selectedGenre"
-                                   ValueChanged="@OnGenreChanged"
-                                   Variant="Variant.Outlined"
-                                   Style="min-width: 150px;"
-                                   AnchorOrigin="Origin.BottomCenter">
-                            <MudSelectItem Value="@string.Empty">All Genres</MudSelectItem>
-                            @foreach (var genre in genres)
-                            {
-                                <MudSelectItem Value="@genre">@genre</MudSelectItem>
-                            }
-                        </MudSelect>
-                    </div>
+                    <MudSelect T="string"
+                             Label="Select a genre.."
+                             Value="@selectedGenre"
+                             ValueChanged="@OnGenreChanged"
+                             Variant="Variant.Outlined"
+                             Class="genre-select"
+                             AnchorOrigin="Origin.BottomCenter">
+                        <MudSelectItem Value="@string.Empty">All Genres</MudSelectItem>
+                        @foreach (var genre in genres)
+                        {
+                            <MudSelectItem Value="@genre">@genre</MudSelectItem>
+                        }
+                    </MudSelect>
 
-                    <!-- Filters Button -->
-                    <div class="control-wrapper" style="margin-left: 8px;">
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
                         <MudButton Variant="Variant.Outlined"
-                                   Color="Color.Error"
-                                   OnClick="@ShowFilterDialog"
-                                   StartIcon="@Icons.Material.Filled.FilterList"
-                                   Class="aligned-button">
+                                 Color="Color.Error"
+                                 OnClick="@ShowFilterDialog"
+                                 StartIcon="@Icons.Material.Filled.FilterList"
+                                 Class="action-button">
                             FILTERS
                         </MudButton>
-                    </div>
 
-                    <!-- Sort Button -->
-                    <div class="control-wrapper" style="margin-left: 8px;">
                         <MudMenu Icon="@Icons.Material.Filled.ArrowDropDown"
-                                 Label="SORT"
-                                 Variant="Variant.Outlined"
-                                 EndIcon="false"
-                                 Class="aligned-button"
-                                 AnchorOrigin="Origin.BottomCenter"
-                                 TransformOrigin="Origin.TopCenter">
+                                Label="SORT"
+                                Variant="Variant.Outlined"
+                                EndIcon="false"
+                                Class="action-button"
+                                AnchorOrigin="Origin.BottomCenter"
+                                TransformOrigin="Origin.TopCenter">
                             <MudMenuItem OnClick="@(() => ApplySort("date_desc"))">
                                 Newest First
                             </MudMenuItem>
@@ -77,14 +69,11 @@
                                 Title (A-Z)
                             </MudMenuItem>
                         </MudMenu>
-                    </div>
 
-                    <!-- Search Button -->
-                    <div class="control-wrapper" style="margin-left: 8px;">
                         <MudButton Variant="Variant.Filled"
                                  Color="Color.Error"
                                  OnClick="@SearchMovies"
-                                 Class="aligned-button">
+                                 Class="action-button">
                             SEARCH
                         </MudButton>
                     </div>
@@ -168,31 +157,114 @@
 </MudContainer>
 
 <style>
-    .search-filter-container {
+    .search-controls {
         display: flex;
-        align-items: center;
         flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 16px;
-    }
-
-    .control-wrapper {
-        display: flex;
+        gap: 12px;
         align-items: center;
+        width: 100%;
+        background: var(--mud-palette-background);
+        padding: 16px;
+        border-radius: 4px;
     }
 
-    .aligned-button {
-        height: 40px;
+    .search-input {
+        flex: 2;
+        min-width: 250px;
+    }
+
+    .genre-select {
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: nowrap;
+    }
+
+    .action-button {
+        height: 48px; /* Increased touch target */
         text-transform: uppercase;
-        margin: 0;
-        padding: 0 16px;
+        white-space: nowrap;
+        min-width: 90px; /* Ensure buttons have enough width */
     }
 
+    /* Mobile responsiveness */
+    @@media (max-width: 960px) {
+        .search-controls {
+            flex-direction: column;
+            align-items: stretch;
+            padding: 12px;
+            gap: 12px;
+        }
+
+        .search-input,
+        .genre-select {
+            width: 100%;
+            min-width: 100%;
+        }
+
+        .search-input :deep(.mud-input),
+        .genre-select :deep(.mud-input) {
+            height: 48px; /* Taller inputs on mobile */
+        }
+
+        .search-input :deep(.mud-input-outlined-border) {
+            border-radius: 8px; /* Slightly rounded corners */
+        }
+
+        .action-buttons {
+            width: 100%;
+            justify-content: stretch;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .action-button {
+            flex: 1;
+            min-width: calc(50% - 4px); /* Two buttons per row with gap */
+            font-size: 14px;
+            height: 48px;
+            border-radius: 8px;
+        }
+    }
+
+    /* iPhone specific optimizations */
+    @@media (max-width: 428px) { /* iPhone 13 width */
+        .search-controls {
+            padding: 12px 8px;
+            margin: -8px;
+            border-radius: 0;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+
+        .action-button {
+            width: 100%;
+            min-width: 100%;
+            margin: 0;
+        }
+
+        /* Adjust movie grid for mobile */
+        .movie-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 8px !important;
+            padding: 8px;
+        }
+    }
+
+    /* Movie grid styles */
     .movie-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
         gap: 16px;
         width: 100%;
+        margin-top: 16px;
     }
 
     @@media (min-width: 600px) {
@@ -219,17 +291,18 @@
         }
     }
 
-    /* Mobile responsiveness */
-    @@media (max-width: 600px) {
-        .search-filter-container {
-            flex-direction: column;
-            align-items: stretch;
+    /* Safe area insets for modern iOS devices */
+    @@supports(padding: max(0px)) {
+        .search-controls {
+            padding-left: max(12px, env(safe-area-inset-left));
+            padding-right: max(12px, env(safe-area-inset-right));
+            padding-bottom: max(12px, env(safe-area-inset-bottom));
         }
 
-        .control-wrapper {
-            margin-left: 0 !important;
-            margin-bottom: 8px;
-            width: 100%;
+        .movie-grid {
+            padding-left: max(8px, env(safe-area-inset-left));
+            padding-right: max(8px, env(safe-area-inset-right));
+            padding-bottom: max(8px, env(safe-area-inset-bottom));
         }
     }
 </style>
