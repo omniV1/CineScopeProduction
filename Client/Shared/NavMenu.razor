@@ -1,0 +1,77 @@
+@using MudBlazor
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
+
+<!-- Navigation menu for the application -->
+<MudNavMenu Color="Color.Primary" Class="py-2">
+    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home" IconColor="Color.Primary">
+        Home
+    </MudNavLink>
+    <MudNavLink Href="movies" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Movie" IconColor="Color.Primary">
+        Movies
+    </MudNavLink>
+    <MudNavLink Href="watchlist" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Bookmark" IconColor="Color.Primary">
+        Watchlist
+    </MudNavLink>
+    <AuthorizeView>
+        <Authorized Context="auth">
+            <MudNavGroup Title="My Account" Icon="@Icons.Material.Filled.AccountCircle" IconColor="Color.Primary" 
+                        Class="mt-2" Expanded="false">
+                <MudNavLink Href="profile" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person" IconColor="Color.Primary">
+                    Profile
+                </MudNavLink>
+                <MudNavLink Href="reviews" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.RateReview" IconColor="Color.Primary">
+                    My Reviews
+                </MudNavLink>
+                <MudNavLink Href="settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings" IconColor="Color.Primary">
+                    Settings
+                </MudNavLink>
+            </MudNavGroup>
+            <AuthorizeView Roles="Admin">
+                <Authorized Context="adminAuth">
+                    <MudNavLink Href="admin" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AdminPanelSettings" IconColor="Color.Primary">
+                        Admin Panel
+                    </MudNavLink>
+                </Authorized>
+            </AuthorizeView>
+        </Authorized>
+    </AuthorizeView>
+</MudNavMenu>
+
+<style>
+    .mud-nav-link {
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin: 4px 8px;
+        transition: all 0.2s ease-in-out;
+    }
+
+    .mud-nav-link:hover {
+        background-color: var(--mud-palette-action-default-hover);
+    }
+
+    .mud-nav-link.active {
+        background-color: var(--mud-palette-primary);
+        color: var(--mud-palette-primary-text);
+    }
+
+    .mud-nav-link.active .mud-nav-link-icon {
+        color: var(--mud-palette-primary-text) !important;
+    }
+
+    .mud-nav-group > .mud-nav-link {
+        padding-left: 24px;
+    }
+
+    @@media (max-width: 600px) {
+        .mud-nav-link {
+            padding: 16px;
+            margin: 4px;
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public bool ShowDebugInfo { get; set; } = false;
+} 

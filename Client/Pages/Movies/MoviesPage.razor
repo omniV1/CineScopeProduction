@@ -9,563 +9,255 @@
 
 <PageTitle>CineScope - Movies</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 px-2">
-    <MudGrid>
-        <!-- Header with search and filter controls -->
-        <MudItem xs="12">
-            <MudPaper Elevation="0" Class="pb-4">
-                <MudText Typo="Typo.h4" Class="mb-4">Browse Movies</MudText>
-
-                <div class="search-controls">
-                    <!-- Search Box -->
-                    <MudTextField @bind-Value="searchTerm"
-                                Label="Search Movies.."
-                                Variant="Variant.Outlined"
-                                Adornment="Adornment.End"
-                                AdornmentIcon="@Icons.Material.Filled.Search"
-                                IconSize="Size.Medium"
-                                Class="search-input"
-                                OnKeyDown="@HandleSearchKeyDown" />
-
-                    <!-- Genre Filter -->
-                    <MudSelect T="string"
-                             Label="Select a genre.."
-                             Value="@selectedGenre"
-                             ValueChanged="@OnGenreChanged"
-                             Variant="Variant.Outlined"
-                             Class="genre-select"
-                             AnchorOrigin="Origin.BottomCenter">
-                        <MudSelectItem Value="@string.Empty">All Genres</MudSelectItem>
-                        @foreach (var genre in genres)
-                        {
-                            <MudSelectItem Value="@genre">@genre</MudSelectItem>
-                        }
-                    </MudSelect>
-
-                    <!-- Action Buttons -->
-                    <div class="action-buttons">
-                        <MudButton Variant="Variant.Outlined"
-                                 Color="Color.Error"
-                                 OnClick="@ShowFilterDialog"
-                                 StartIcon="@Icons.Material.Filled.FilterList"
-                                 Class="action-button">
-                            FILTERS
-                        </MudButton>
-
-                        <MudMenu Icon="@Icons.Material.Filled.ArrowDropDown"
-                                Label="SORT"
-                                Variant="Variant.Outlined"
-                                EndIcon="false"
-                                Class="action-button"
-                                AnchorOrigin="Origin.BottomCenter"
-                                TransformOrigin="Origin.TopCenter">
-                            <MudMenuItem OnClick="@(() => ApplySort("date_desc"))">
-                                Newest First
-                            </MudMenuItem>
-                            <MudMenuItem OnClick="@(() => ApplySort("rating_desc"))">
-                                Rating (High to Low)
-                            </MudMenuItem>
-                            <MudMenuItem OnClick="@(() => ApplySort("title_asc"))">
-                                Title (A-Z)
-                            </MudMenuItem>
-                        </MudMenu>
-
-                        <MudButton Variant="Variant.Filled"
-                                 Color="Color.Error"
-                                 OnClick="@SearchMovies"
-                                 Class="action-button">
-                            SEARCH
-                        </MudButton>
-                    </div>
-                </div>
-            </MudPaper>
-        </MudItem>
-
-        <!-- Active Filters Display -->
-        @if (!string.IsNullOrEmpty(selectedGenre) || minimumRating > 1)
-        {
-            <MudItem xs="12">
-                <MudPaper Elevation="0" Class="pa-4 mb-4" Style="background-color: var(--mud-palette-background-grey)">
-                    <MudText Typo="Typo.subtitle1">Active Filters:</MudText>
-                    <div class="d-flex flex-wrap gap-2 mt-2">
-                        @if (!string.IsNullOrEmpty(selectedGenre))
-                        {
-                            <MudChip Color="Color.Error" OnClose="@(() => ClearGenreFilter())">
-                                Genre: @selectedGenre
-                            </MudChip>
-                        }
-                        @if (minimumRating > 1)
-                        {
-                            <MudChip Color="Color.Error" OnClose="@(() => ClearRatingFilter())">
-                                Rating: @minimumRating+ Stars
-                            </MudChip>
-                        }
-                        <MudButton Variant="Variant.Text" Color="Color.Error"
-                                   OnClick="@ClearAllFilters" Size="Size.Small">
-                            Clear All
-                        </MudButton>
-                    </div>
-                </MudPaper>
-            </MudItem>
-        }
-
-        <!-- Refresh Button and Cache Status -->
-        <MudItem xs="12">
-            <div class="d-flex justify-space-between align-center">
-                <MudText>Showing @displayedMovies.Count movies @(totalMovies > displayedMovies.Count ? $"(of {totalMovies} total)" : "")</MudText>
-                <div class="d-flex align-center">
-                    @if (isVirtualizationActive)
+<MudContainer MaxWidth="MaxWidth.False" Class="mt-4">
+    <MudPaper Elevation="3" Class="pa-4 mb-4">
+        <div class="d-flex flex-column">
+            <MudText Typo="Typo.h4" Class="mb-4">Browse Movies</MudText>
+            <div class="search-controls">
+                <MudTextField @bind-Value="searchQuery" 
+                            Label="Search movies..." 
+                            Variant="Variant.Outlined"
+                            Adornment="Adornment.Start"
+                            AdornmentIcon="@Icons.Material.Filled.Search"
+                            Class="flex-grow-1 min-width-250"
+                            Immediate="true"
+                            DebounceInterval="500"
+                            OnDebounceIntervalElapsed="SearchMovies" />
+                
+                <MudSelect T="string" 
+                          Label="Genre" 
+                          Variant="Variant.Outlined"
+                          MultiSelection="true"
+                          @bind-Value="selectedGenre"
+                          Class="min-width-200"
+                          SelectedValuesChanged="@(() => SearchMovies())">
+                    @foreach (var genre in genres)
                     {
-                        <MudIcon Icon="@Icons.Material.Filled.Speed" Color="Color.Success" Class="mr-2" Size="Size.Small" />
-                        <MudText Color="Color.Success" Class="mr-4" Typo="Typo.caption">Virtualization Active</MudText>
+                        <MudSelectItem Value="@genre">@genre</MudSelectItem>
                     }
-                    <MudButton Variant="Variant.Text"
-                               Color="Color.Primary"
-                               OnClick="@(() => LoadMovies(true))"
-                               StartIcon="@Icons.Material.Filled.Refresh">
-                        Refresh Data
+                </MudSelect>
+
+                <div class="action-buttons">
+                    <MudButton Variant="Variant.Filled" 
+                             Color="Color.Primary" 
+                             OnClick="SearchMovies"
+                             StartIcon="@Icons.Material.Filled.Search">
+                        Search
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" 
+                             Color="Color.Primary"
+                             OnClick="ResetFilters"
+                             StartIcon="@Icons.Material.Filled.Clear">
+                        Reset
                     </MudButton>
                 </div>
             </div>
-        </MudItem>
+        </div>
+    </MudPaper>
 
-        <!-- Movie Grid -->
-        <MudItem xs="12">
-            @if (isLoading)
+    @if (isLoading)
+    {
+        <div class="d-flex justify-center my-8">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        </div>
+    }
+    else
+    {
+        <div class="movie-grid">
+            @foreach (var movie in movies)
             {
-                <div class="d-flex justify-center my-8">
-                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
-                </div>
+                <MudPaper Elevation="2" Class="movie-card">
+                    <MudLink Href="@($"/movies/{movie.Id}")">
+                        <MudImage Src="@movie.PosterUrl" 
+                                 Alt="@movie.Title"
+                                 Elevation="0"
+                                 ObjectFit="ObjectFit.Cover"
+                                 Class="movie-poster" />
+                    </MudLink>
+                    <div class="movie-info pa-3">
+                        <MudLink Href="@($"/movies/{movie.Id}")" Underline="Underline.None">
+                            <MudText Typo="Typo.subtitle1" Class="movie-title">@movie.Title</MudText>
+                        </MudLink>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@movie.ReleaseDate.Year</MudText>
+                        <div class="d-flex align-center mt-2">
+                            <MudRating ReadOnly="true" Value="@movie.AverageRating" Max="5" />
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-2">
+                                @movie.AverageRating.ToString("0.0")
+                            </MudText>
+                        </div>
+                    </div>
+                </MudPaper>
             }
-            else if (displayedMovies.Count == 0)
-            {
-                <MudAlert Severity="Severity.Info" Class="my-4">
-                    <i class="fas fa-exclamation-circle"></i> No movies found. Try adjusting your search or filters.
-                </MudAlert>
-            }
-            else
-            {
-                <div class="movie-grid">
-                    @foreach (var movie in displayedMovies)
-                    {
-                        <MovieCard Movie="@movie" />
-                    }
-                </div>
-            }
-        </MudItem>
-    </MudGrid>
+        </div>
+
+        @if (!movies.Any())
+        {
+            <MudText Typo="Typo.h6" Align="Align.Center" Class="mt-8">
+                No movies found matching your criteria.
+            </MudText>
+        }
+    }
 </MudContainer>
 
 <style>
     .search-controls {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
-        align-items: center;
-        width: 100%;
-        background: var(--mud-palette-background);
-        padding: 16px;
-        border-radius: 4px;
+        gap: 16px;
+        align-items: flex-start;
     }
 
-    .search-input {
-        flex: 2;
+    .min-width-250 {
         min-width: 250px;
     }
 
-    .genre-select {
-        flex: 1;
+    .min-width-200 {
         min-width: 200px;
     }
 
     .action-buttons {
         display: flex;
         gap: 8px;
-        align-items: center;
-        flex-wrap: nowrap;
     }
 
-    .action-button {
-        height: 48px; /* Increased touch target */
-        text-transform: uppercase;
-        white-space: nowrap;
-        min-width: 90px; /* Ensure buttons have enough width */
+    .movie-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 24px;
+        margin-top: 24px;
     }
 
-    /* Mobile responsiveness */
-    @@media (max-width: 960px) {
+    .movie-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        transition: transform 0.2s ease-in-out;
+        overflow: hidden;
+    }
+
+    .movie-card:hover {
+        transform: translateY(-4px);
+    }
+
+    .movie-poster {
+        width: 100%;
+        aspect-ratio: 2/3;
+        object-fit: cover;
+    }
+
+    .movie-info {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .movie-title {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    @@media (max-width: 600px) {
         .search-controls {
-            flex-direction: column;
-            align-items: stretch;
-            padding: 12px;
             gap: 12px;
         }
 
-        .search-input,
-        .genre-select {
-            width: 100%;
+        .min-width-250,
+        .min-width-200 {
             min-width: 100%;
-        }
-
-        .search-input :deep(.mud-input),
-        .genre-select :deep(.mud-input) {
-            height: 48px; /* Taller inputs on mobile */
-        }
-
-        .search-input :deep(.mud-input-outlined-border) {
-            border-radius: 8px; /* Slightly rounded corners */
         }
 
         .action-buttons {
             width: 100%;
             justify-content: stretch;
-            gap: 8px;
-            flex-wrap: wrap;
         }
 
-        .action-button {
+        .action-buttons .mud-button {
             flex: 1;
-            min-width: calc(50% - 4px); /* Two buttons per row with gap */
-            font-size: 14px;
-            height: 48px;
-            border-radius: 8px;
-        }
-    }
-
-    /* iPhone specific optimizations */
-    @@media (max-width: 428px) { /* iPhone 13 width */
-        .search-controls {
-            padding: 12px 8px;
-            margin: -8px;
-            border-radius: 0;
         }
 
-        .action-buttons {
-            flex-direction: column;
-        }
-
-        .action-button {
-            width: 100%;
-            min-width: 100%;
-            margin: 0;
-        }
-
-        /* Adjust movie grid for mobile */
         .movie-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 8px !important;
-            padding: 8px;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 16px;
         }
     }
 
-    /* Movie grid styles */
-    .movie-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-        gap: 16px;
-        width: 100%;
-        margin-top: 16px;
-    }
-
-    @@media (min-width: 600px) {
+    @@media (min-width: 601px) and (max-width: 960px) {
         .movie-grid {
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        }
-    }
-
-    @@media (min-width: 960px) {
-        .movie-grid {
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-        }
-    }
-
-    @@media (min-width: 1280px) {
-        .movie-grid {
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 20px;
         }
     }
 
     @@media (min-width: 1920px) {
         .movie-grid {
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
         }
     }
 
-    /* Safe area insets for modern iOS devices */
-    @@supports(padding: max(0px)) {
-        .search-controls {
-            padding-left: max(12px, env(safe-area-inset-left));
-            padding-right: max(12px, env(safe-area-inset-right));
-            padding-bottom: max(12px, env(safe-area-inset-bottom));
-        }
-
-        .movie-grid {
-            padding-left: max(8px, env(safe-area-inset-left));
-            padding-right: max(8px, env(safe-area-inset-right));
-            padding-bottom: max(8px, env(safe-area-inset-bottom));
+    /* iOS Safe Area Support */
+    @@supports (padding: max(0px)) {
+        .mud-container {
+            padding-left: max(16px, env(safe-area-inset-left));
+            padding-right: max(16px, env(safe-area-inset-right));
+            padding-bottom: max(16px, env(safe-area-inset-bottom));
         }
     }
 </style>
 
 @code {
-    // State for movies and display
-    private List<MovieDto> allMovies = new();
-    private List<MovieDto> displayedMovies = new();
-    private int totalMovies = 0;
-    private bool isLoading = true;
-    private bool isVirtualizationActive => displayedMovies.Count > 50; // Automatically enable for large datasets
+    private string searchQuery = "";
+    private string selectedGenre = "";
+    private List<string> genres = new() { "Action", "Adventure", "Comedy", "Drama", "Horror", "Sci-Fi", "Thriller" };
+    private List<MovieDto> movies = new();
+    private bool isLoading = false;
 
-    // Virtualization and pagination settings
-    private const int PAGE_SIZE = 20; // Number of movies to load at once
-    private int currentPage = 1;
-
-    // Debouncing for search
-    private CancellationTokenSource _debounceTokenSource = new();
-
-    // Filter/search state
-    private string searchTerm = string.Empty;
-    private string selectedGenre = string.Empty;
-    private int minimumRating = 1;
-    public string CurrentSortOption { get; private set; } = "date_desc"; // Default sort
-
-    // Available options
-    private List<string> genres = new() {
-        "Action", "Comedy", "Drama", "Horror", "Sci-Fi", "Thriller", "Romance", "Animation"
-    };
-
-    /// <summary>
-    /// Initialize component and load movie data
-    /// </summary>
     protected override async Task OnInitializedAsync()
     {
         await LoadMovies();
     }
 
-    /// <summary>
-    /// Loads movies using the client-side cache service
-    /// </summary>
-    private async Task LoadMovies(bool forceRefresh = false)
+    private async Task LoadMovies()
     {
         try
         {
             isLoading = true;
-            Console.WriteLine($"Loading movies with filters (forceRefresh: {forceRefresh})...");
+            StateHasChanged();
 
-            // If we have a selected genre, get movies for that genre
-            if (!string.IsNullOrEmpty(selectedGenre))
-            {
-                allMovies = await MovieCacheService.GetMoviesByGenreAsync(selectedGenre, forceRefresh);
-            }
-            else
-            {
-                // Otherwise get all movies
-                allMovies = await MovieCacheService.GetAllMoviesAsync(forceRefresh);
-            }
+            // Get all movies from the cache service
+            var allMovies = await MovieCacheService.GetAllMoviesAsync();
 
-            // Apply client-side filters
-            ApplyClientSideFilters();
-
-            Console.WriteLine($"Loaded {displayedMovies.Count} movies");
+            // Apply filters
+            movies = allMovies
+                .Where(m => string.IsNullOrEmpty(searchQuery) || 
+                           m.Title.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
+                .Where(m => string.IsNullOrEmpty(selectedGenre) || 
+                           m.Genres.Contains(selectedGenre))
+                .OrderByDescending(m => m.ReleaseDate)
+                .ToList();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Exception: {ex.Message}");
-            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
-
-            // If an exception occurs, we can still try to filter the movies we already have
-            ApplyClientSideFilters();
+            Snackbar.Add($"Error loading movies: {ex.Message}", Severity.Error);
         }
         finally
         {
             isLoading = false;
-            StateHasChanged(); // Make sure UI refreshes
+            StateHasChanged();
         }
     }
 
-    /// <summary>
-    /// Shows the filter dialog for additional options like rating
-    /// </summary>
-    private void ShowFilterDialog()
-    {
-        // In a full implementation, this would open a dialog with additional filter options
-        // For this test sample, we'll set minimum rating directly
-        var options = new DialogOptions { CloseOnEscapeKey = true };
-
-        var parameters = new DialogParameters
-            {
-                ["CurrentRating"] = minimumRating
-            };
-
-        // This would be implemented in a real app with a dialog component
-        // Instead, we'll just simulate setting the minimum rating for testing
-        SetRatingFilter(4); // For testing, set to 4 stars
-    }
-
-    /// <summary>
-    /// Sets the minimum rating filter value
-    /// </summary>
-    public void SetRatingFilter(int rating)
-    {
-        minimumRating = rating;
-        ApplyClientSideFilters();
-    }
-
-    /// <summary>
-    /// Applies sorting option and refreshes movies
-    /// </summary>
-    private async Task ApplySort(string sortOption)
-    {
-        CurrentSortOption = sortOption;
-        // No need to reload from server, just apply client-side sorting
-        ApplyClientSideFilters();
-    }
-
-    /// <summary>
-    /// Handles genre selection change
-    /// </summary>
-    private async Task OnGenreChanged(string genre)
-    {
-        selectedGenre = genre;
-        await LoadMovies();
-    }
-
-    /// <summary>
-    /// Handles search when Enter key is pressed or when typing (with debounce)
-    /// </summary>
-    private async Task HandleSearchKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter")
-        {
-            // Immediate search on Enter key
-            _debounceTokenSource.Cancel(); // Cancel any pending debounced search
-            ApplyClientSideFilters();
-        }
-        else
-        {
-            // Debounced search while typing
-            await SearchMovies();
-        }
-    }
-
-    /// <summary>
-    /// Executes search with current filters with debouncing
-    /// </summary>
     private async Task SearchMovies()
     {
-        try
-        {
-            // Cancel any existing debounce operation
-            _debounceTokenSource.Cancel();
-            _debounceTokenSource = new CancellationTokenSource();
-            var token = _debounceTokenSource.Token;
-
-            // Small loading indicator or message could be shown here
-
-            // Add a small delay for debouncing (300ms is typically good)
-            await Task.Delay(300, token);
-
-            // If the token wasn't cancelled during the delay, apply filters
-            if (!token.IsCancellationRequested)
-            {
-                // Search is done client-side with existing data
-                ApplyClientSideFilters();
-            }
-        }
-        catch (TaskCanceledException)
-        {
-            // This is expected when debouncing, just ignore
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error in search: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Clears the genre filter
-    /// </summary>
-    private async Task ClearGenreFilter()
-    {
-        selectedGenre = string.Empty;
         await LoadMovies();
     }
 
-    /// <summary>
-    /// Clears the rating filter
-    /// </summary>
-    private async Task ClearRatingFilter()
+    private async Task ResetFilters()
     {
-        minimumRating = 1;
-        ApplyClientSideFilters();
-    }
-
-    /// <summary>
-    /// Clears all active filters
-    /// </summary>
-    private async Task ClearAllFilters()
-    {
-        selectedGenre = string.Empty;
-        minimumRating = 1;
-        searchTerm = string.Empty;
+        searchQuery = "";
+        selectedGenre = "";
         await LoadMovies();
-    }
-
-    /// <summary>
-    /// Applies client-side filtering to the movies list with pagination
-    /// </summary>
-    private void ApplyClientSideFilters()
-    {
-        try
-        {
-            // Start with all movies
-            var filteredMovies = allMovies;
-
-            // Apply rating filter
-            if (minimumRating > 1)
-            {
-                filteredMovies = filteredMovies
-                    .Where(m => m.AverageRating >= minimumRating)
-                    .ToList();
-            }
-
-            // Apply search term filter
-            if (!string.IsNullOrEmpty(searchTerm))
-            {
-                filteredMovies = filteredMovies
-                    .Where(m => m.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-            }
-
-            // Store the total count before pagination
-            totalMovies = filteredMovies.Count;
-
-            // Apply sort to all filtered movies
-            filteredMovies = ApplySorting(filteredMovies);
-
-            // Update displayed movies - use all movies for virtualization
-            // MudVirtualize will handle efficiently rendering only the visible ones
-            displayedMovies = filteredMovies;
-
-            Console.WriteLine($"Applied filters: {displayedMovies.Count} movies displayed from {totalMovies} total");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error in ApplyClientSideFilters: {ex.Message}");
-            Snackbar.Add($"Error applying filters: {ex.Message}", Severity.Error);
-        }
-    }
-
-    /// <summary>
-    /// Applies sorting to the movies list
-    /// </summary>
-    private List<MovieDto> ApplySorting(List<MovieDto> movies)
-    {
-        return CurrentSortOption switch
-        {
-            "date_desc" => movies.OrderByDescending(m => m.ReleaseDate).ToList(),
-            "rating_desc" => movies.OrderByDescending(m => m.AverageRating).ToList(),
-            "title_asc" => movies.OrderBy(m => m.Title).ToList(),
-            _ => movies // Default sort
-        };
     }
 }

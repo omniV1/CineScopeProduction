@@ -25,7 +25,13 @@
 
             <div class="d-flex gap-2">
                 <!-- Filter Button -->
-                <MudMenu Icon="@Icons.Material.Filled.FilterList" Label="Filter" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+                <MudMenu Icon="@Icons.Material.Filled.FilterList" 
+                        Label="Filter" 
+                        Variant="Variant.Outlined" 
+                        Color="Color.Primary" 
+                        Size="Size.Small" 
+                        AnchorOrigin="Origin.BottomCenter" 
+                        TransformOrigin="Origin.TopCenter">
                     <MudMenuItem OnClick="@(() => FilterReviews("all"))">All Ratings</MudMenuItem>
                     <MudMenuItem OnClick="@(() => FilterReviews("positive"))">Positive (4-5 ★)</MudMenuItem>
                     <MudMenuItem OnClick="@(() => FilterReviews("neutral"))">Neutral (3 ★)</MudMenuItem>
@@ -33,7 +39,13 @@
                 </MudMenu>
 
                 <!-- Sort Button -->
-                <MudMenu Icon="@Icons.Material.Filled.Sort" Label="Sort" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter">
+                <MudMenu Icon="@Icons.Material.Filled.Sort" 
+                        Label="Sort" 
+                        Variant="Variant.Outlined" 
+                        Color="Color.Primary" 
+                        Size="Size.Small" 
+                        AnchorOrigin="Origin.BottomCenter" 
+                        TransformOrigin="Origin.TopCenter">
                     <MudMenuItem OnClick="@(() => SortReviews("newest"))">Newest First</MudMenuItem>
                     <MudMenuItem OnClick="@(() => SortReviews("oldest"))">Oldest First</MudMenuItem>
                     <MudMenuItem OnClick="@(() => SortReviews("highest"))">Highest Rated</MudMenuItem>

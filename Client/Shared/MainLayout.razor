@@ -16,7 +16,11 @@
         <div class="d-flex align-center gap-2">
             <AuthorizeView>
                 <Authorized>
-                    <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" Direction="Direction.Bottom" OffsetY="true" Dense="true">
+                    <MudMenu Icon="@Icons.Material.Filled.AccountCircle" 
+                            Color="Color.Inherit" 
+                            Dense="true"
+                            AnchorOrigin="Origin.BottomRight"
+                            TransformOrigin="Origin.TopRight">
                         <MudMenuItem Href="/profile">Profile</MudMenuItem>
                         <MudMenuItem Href="/watchlist">Watchlist</MudMenuItem>
                         <MudMenuItem Href="/reviews">My Reviews</MudMenuItem>
