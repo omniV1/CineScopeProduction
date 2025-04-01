@@ -1,0 +1,10 @@
+/* Safari-specific fixes */
+@supports (-webkit-touch-callout: none) {
+    .mud-drawer {
+        height: -webkit-fill-available;
+    }
+
+    .mud-main-content {
+        min-height: -webkit-fill-available;
+    }
+} 

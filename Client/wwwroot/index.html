@@ -28,27 +28,48 @@
     <link href="css/poster-cache.css" rel="stylesheet" />
 
     <!-- reCAPTCHA Script -->
+    <script src="https://www.google.com/recaptcha/api.js?render=explicit" async defer></script>
     <script>
         window.recaptchaFunctions = {
             widgets: {},
             render: function (elementId) {
-                console.log("Rendering reCAPTCHA v2 for", elementId);
-                try {
-                    const widgetId = grecaptcha.render(elementId, {
-                        'sitekey': '6Ld8oAYrAAAAAKxRXwgV4_1PMHv06IudnMlG1_Uh',
-                        'callback': function(token) {
-                            console.log("reCAPTCHA callback received token for", elementId);
-                            this.widgets[elementId] = {
-                                widgetId: widgetId,
-                                token: token
-                            };
-                        }.bind(this)
-                    });
-                    this.widgets[elementId] = { widgetId: widgetId, token: null };
-                    console.log("reCAPTCHA rendered successfully for", elementId);
-                } catch (e) {
-                    console.error("Error rendering reCAPTCHA:", e);
-                }
+                console.log("Attempting to render reCAPTCHA v2 for", elementId);
+                
+                const renderWidget = () => {
+                    try {
+                        if (typeof grecaptcha === 'undefined') {
+                            console.log("reCAPTCHA not loaded yet, retrying in 500ms...");
+                            setTimeout(() => renderWidget(), 500);
+                            return;
+                        }
+
+                        const element = document.getElementById(elementId);
+                        if (!element) {
+                            console.log("Element not found, retrying in 500ms...");
+                            setTimeout(() => renderWidget(), 500);
+                            return;
+                        }
+
+                        console.log("Found element, rendering reCAPTCHA...");
+                        const widgetId = grecaptcha.render(elementId, {
+                            'sitekey': '6Ld8oAYrAAAAAKxRXwgV4_1PMHv06IudnMlG1_Uh',
+                            'callback': (token) => {
+                                console.log("reCAPTCHA callback received token");
+                                this.widgets[elementId] = {
+                                    widgetId: widgetId,
+                                    token: token
+                                };
+                            }
+                        });
+                        this.widgets[elementId] = { widgetId: widgetId, token: null };
+                        console.log("reCAPTCHA rendered successfully");
+                    } catch (e) {
+                        console.error("Error rendering reCAPTCHA:", e);
+                        setTimeout(() => renderWidget(), 500);
+                    }
+                };
+
+                renderWidget();
             },
             executeRecaptcha: async function (elementId) {
                 console.log("Getting reCAPTCHA token for", elementId || "default widget");
@@ -56,7 +77,7 @@
                     return this.widgets[elementId].token;
                 }
                 // For backward compatibility with existing code
-                return this.widgets['g-recaptcha']?.token;
+                return this.widgets['recaptcha-container']?.token;
             },
             reset: function (elementId) {
                 console.log("Resetting reCAPTCHA for", elementId || "all widgets");
@@ -77,7 +98,33 @@
             }
         };
     </script>
-    <script src="https://www.google.com/recaptcha/api.js?render=explicit" async defer></script>
+
+    <!-- Window resize handling -->
+    <script>
+        window.addResizeEventListener = function (dotnetHelper) {
+            window._dotnetHelper = dotnetHelper;
+            window.onresize = debounce(async function () {
+                await window._dotnetHelper.invokeMethodAsync('OnWindowResize');
+            }, 250);
+        };
+
+        window.removeResizeEventListener = function () {
+            window.onresize = null;
+            window._dotnetHelper = null;
+        };
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+    </script>
 
 </head>
 

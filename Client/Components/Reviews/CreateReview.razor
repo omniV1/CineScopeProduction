@@ -53,8 +53,23 @@
 
             <!-- reCAPTCHA placed here, before alerts -->
             <div class="d-flex justify-center mt-4 mb-4">
-                <div id="g-recaptcha"></div>
+                <div @ref="recaptchaElement" id="recaptcha-container" class="recaptcha-container" style="min-height: 78px;"></div>
             </div>
+
+            <style>
+                .recaptcha-container {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    width: 100%;
+                }
+                .recaptcha-container > div {
+                    margin: 0 auto;
+                }
+                .recaptcha-container iframe {
+                    margin: 0 auto;
+                }
+            </style>
 
             @if (!string.IsNullOrEmpty(errorMessage))
             {
@@ -99,6 +114,7 @@
     private string errorMessage = string.Empty;
     private bool isLoading = false;
     private List<string> contentWarning = null;
+    private ElementReference recaptchaElement;
 
     [Parameter] public string MovieId { get; set; } = string.Empty;
     [Parameter] public string CurrentUserId { get; set; } = string.Empty;
@@ -141,7 +157,9 @@
         {
             try
             {
-                await JSRuntime.InvokeVoidAsync("recaptchaFunctions.render");
+                // Add a small delay to ensure the reCAPTCHA script is loaded
+                await Task.Delay(500);
+                await JSRuntime.InvokeVoidAsync("recaptchaFunctions.render", "recaptcha-container");
                 Console.WriteLine("reCAPTCHA widget rendered");
             }
             catch (Exception ex)

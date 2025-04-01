@@ -1,40 +1,64 @@
 ﻿@inherits LayoutComponentBase
 @using MudBlazor
 @using Microsoft.AspNetCore.Components.Authorization
+@inject IJSRuntime JSRuntime
 
 <!-- Main layout container for the application -->
 <MudLayout>
-    <!-- Application header bar -->
-    <MudAppBar Elevation="1" Dense="true" Class="cinescope-appbar">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+    <!-- Fixed header -->
+    <MudAppBar Elevation="0" Fixed="true" Dense="true" Class="border-b border-solid border-surface-300 dark:border-surface-700">
+        <MudContainer MaxWidth="MaxWidth.Large" Class="d-flex align-center justify-space-between">
+            <!-- Left section with menu and title -->
+            <div class="d-flex align-center">
+                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Primary" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+                <MudLink Href="/" Color="Color.Primary" Underline="Underline.None">
+                    <MudText Typo="Typo.h5" Class="ml-2">CineScope</MudText>
+                </MudLink>
+            </div>
 
-        <!-- Logo and title -->
-        <div class="d-flex align-center">
-            <MudText Typo="Typo.h5" Class="ml-2">CineScope</MudText>
-        </div>
-
-        <MudSpacer />
-
-        <MudIconButton Icon="@Icons.Material.Filled.Search" Color="Color.Inherit" />
-        <MudIconButton Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" />
+            <!-- Right section with search and profile -->
+            <div class="d-flex align-center">
+                <AuthorizeView>
+                    <Authorized>
+                        <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                            <ActivatorContent>
+                                <MudIconButton Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Primary" />
+                            </ActivatorContent>
+                            <ChildContent>
+                                <MudText Class="px-4 py-2">@context.User.Identity?.Name</MudText>
+                                <MudDivider />
+                                <MudMenuItem Href="/profile">Profile</MudMenuItem>
+                                <MudMenuItem Href="/settings">Settings</MudMenuItem>
+                                <MudMenuItem OnClick="@(() => { })">Logout</MudMenuItem>
+                            </ChildContent>
+                        </MudMenu>
+                    </Authorized>
+                    <NotAuthorized>
+                        <MudButton Href="/login" Variant="Variant.Text" Color="Color.Primary" Class="ml-2">Login</MudButton>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
+        </MudContainer>
     </MudAppBar>
 
-    <!-- Navigation drawer for side menu -->
-    <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always">
-        <!-- Drawer header -->
-        <MudDrawerHeader>
-            <MudText Typo="Typo.h6">CineScope</MudText>
-        </MudDrawerHeader>
-
-        <!-- Navigation menu component -->
-        <NavMenu />
+    <!-- Side Navigation -->
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="0" Variant="@(_isSmallScreen ? DrawerVariant.Temporary : DrawerVariant.Mini)" ClipMode="DrawerClipMode.Always">
+        <MudNavMenu Color="Color.Primary" Class="pa-2">
+            <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
+            <MudNavLink Href="movies" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Movie">Movies</MudNavLink>
+            <AuthorizeView>
+                <Authorized>
+                    <MudNavLink Href="profile" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person">Profile</MudNavLink>
+                    <MudNavLink Href="my-reviews" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.RateReview">My Reviews</MudNavLink>
+                    <MudNavLink Href="admin" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AdminPanelSettings">Admin</MudNavLink>
+                </Authorized>
+            </AuthorizeView>
+        </MudNavMenu>
     </MudDrawer>
 
-    <!-- Main content area -->
-    <MudMainContent>
-        <!-- Container for page content with padding -->
-        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-4">
-            <!-- Render the current page content -->
+    <!-- Main Content -->
+    <MudMainContent Class="pt-16">
+        <MudContainer MaxWidth="MaxWidth.Large" Class="py-6">
             @Body
         </MudContainer>
     </MudMainContent>
@@ -45,12 +69,44 @@
     /// Tracks whether the navigation drawer is open.
     /// </summary>
     private bool _drawerOpen = true;
+    private bool _isSmallScreen = false;
+    private DotNetObjectReference<MainLayout> _objectReference;
 
-    /// <summary>
-    /// Toggles the navigation drawer open/closed state.
-    /// </summary>
-    void DrawerToggle()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _objectReference = DotNetObjectReference.Create(this);
+            await CheckWindowSize();
+            await JSRuntime.InvokeVoidAsync("window.addResizeEventListener", _objectReference);
+        }
+    }
+
+    private async Task CheckWindowSize()
+    {
+        var width = await JSRuntime.InvokeAsync<int>("window.innerWidth");
+        _isSmallScreen = width < 960;
+        _drawerOpen = !_isSmallScreen;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnWindowResize()
+    {
+        await CheckWindowSize();
+    }
+
+    private void ToggleDrawer()
     {
         _drawerOpen = !_drawerOpen;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_objectReference != null)
+        {
+            await JSRuntime.InvokeVoidAsync("window.removeResizeEventListener");
+            _objectReference.Dispose();
+        }
     }
 }

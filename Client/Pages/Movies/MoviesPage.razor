@@ -9,7 +9,7 @@
 
 <PageTitle>CineScope - Movies</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4 px-2">
     <MudGrid>
         <!-- Header with search and filter controls -->
         <MudItem xs="12">
@@ -26,7 +26,7 @@
                                       Adornment="Adornment.End"
                                       AdornmentIcon="@Icons.Material.Filled.Search"
                                       IconSize="Size.Medium"
-                                      Style="flex: 1; min-width: 300px;"
+                                      Style="min-width: 200px; flex: 1;"
                                       OnKeyDown="@HandleSearchKeyDown" />
                     </div>
 
@@ -47,11 +47,8 @@
                         </MudSelect>
                     </div>
 
-                    <!-- Spacer to push the buttons to the right -->
-                    <div style="flex-grow: 1;"></div>
-
                     <!-- Filters Button -->
-                    <div class="control-wrapper">
+                    <div class="control-wrapper" style="margin-left: 8px;">
                         <MudButton Variant="Variant.Outlined"
                                    Color="Color.Error"
                                    OnClick="@ShowFilterDialog"
@@ -61,7 +58,7 @@
                         </MudButton>
                     </div>
 
-                    <!-- Sort Button with Dropdown -->
+                    <!-- Sort Button -->
                     <div class="control-wrapper" style="margin-left: 8px;">
                         <MudMenu Icon="@Icons.Material.Filled.ArrowDropDown"
                                  Label="SORT"
@@ -85,9 +82,9 @@
                     <!-- Search Button -->
                     <div class="control-wrapper" style="margin-left: 8px;">
                         <MudButton Variant="Variant.Filled"
-                                   Color="Color.Error"
-                                   OnClick="@SearchMovies"
-                                   Class="aligned-button">
+                                 Color="Color.Error"
+                                 OnClick="@SearchMovies"
+                                 Class="aligned-button">
                             SEARCH
                         </MudButton>
                     </div>
@@ -143,6 +140,7 @@
             </div>
         </MudItem>
 
+        <!-- Movie Grid -->
         <MudItem xs="12">
             @if (isLoading)
             {
@@ -158,42 +156,31 @@
             }
             else
             {
-                <div class="mud-grid mud-grid-spacing-xs-3" style="position: relative; width: 100%;">
-                    <MudVirtualize Items="displayedMovies" Context="movie" OverscanCount="5" ItemSize="400">
-                        <div class="mud-grid-item mud-grid-item-xs-12 mud-grid-item-sm-6 mud-grid-item-md-4 mud-grid-item-lg-3" style="padding: 6px;">
-                            <MovieCard Movie="@movie" />
-                        </div>
-                    </MudVirtualize>
+                <div class="movie-grid">
+                    @foreach (var movie in displayedMovies)
+                    {
+                        <MovieCard Movie="@movie" />
+                    }
                 </div>
-
-                @if (displayedMovies.Count >= 100)
-                {
-                    <div class="d-flex justify-center mt-4">
-                        <MudText Color="Color.Warning">Large dataset detected. Virtualization is active to improve performance.</MudText>
-                    </div>
-                }
             }
         </MudItem>
     </MudGrid>
 </MudContainer>
 
 <style>
-    /* Custom styles to ensure proper alignment */
     .search-filter-container {
         display: flex;
-        align-items: center; /* Center align all items vertically */
+        align-items: center;
         flex-wrap: wrap;
-        gap: 0;
+        gap: 8px;
+        margin-bottom: 16px;
     }
 
-    /* Wrapper to ensure consistent heights */
     .control-wrapper {
         display: flex;
         align-items: center;
-        height: 40px; /* Fixed height for all controls */
     }
 
-    /* Style for buttons to ensure alignment */
     .aligned-button {
         height: 40px;
         text-transform: uppercase;
@@ -201,7 +188,38 @@
         padding: 0 16px;
     }
 
-    /* Force consistent height on mobile */
+    .movie-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 16px;
+        width: 100%;
+    }
+
+    @@media (min-width: 600px) {
+        .movie-grid {
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        }
+    }
+
+    @@media (min-width: 960px) {
+        .movie-grid {
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        }
+    }
+
+    @@media (min-width: 1280px) {
+        .movie-grid {
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        }
+    }
+
+    @@media (min-width: 1920px) {
+        .movie-grid {
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        }
+    }
+
+    /* Mobile responsiveness */
     @@media (max-width: 600px) {
         .search-filter-container {
             flex-direction: column;
