@@ -1,6 +1,8 @@
 ﻿@using CineScope.Client.Shared.Profile
 @inject ISnackbar Snackbar
 
+<link href="css/profile-pictures.css" rel="stylesheet" />
+
 <MudPaper Class="pa-4 mb-4" Elevation="0">
     <div class="d-flex flex-column">
         <!-- Currently selected profile picture -->
@@ -27,10 +29,9 @@
                 <div @onclick="() => SelectProfilePicture(picture)"
                      class="avatar-option @(picture == SelectedProfilePicture ? "selected" : "")"
                      title="Select this profile picture">
-                    <MudAvatar Style="width: 60px; height: 60px; cursor: pointer;">
-                        <img src="@picture" alt="Profile Picture Option" />
-                    </MudAvatar>
+                    <img src="@picture" alt="Profile Picture Option" class="circular-img" />
                 </div>
+
             }
         </div>
     </div>
@@ -38,9 +39,12 @@
 
 <style>
     .avatar-option {
-        transition: all 0.2s ease;
-        padding: 3px;
+        width: 60px;
+        height: 60px;
         border-radius: 50%;
+        overflow: hidden;
+        transition: all 0.2s ease;
+        padding: 2px;
     }
 
         .avatar-option:hover {

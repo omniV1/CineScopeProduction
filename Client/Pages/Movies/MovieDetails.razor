@@ -16,179 +16,162 @@
 
 <PageTitle>@(movie?.Title ?? "Movie Details") - CineScope</PageTitle>
 
-<!-- Authentication Debug Panel -->
-<AuthorizeView>
-    <Authorized>
-        <MudAlert Severity="Severity.Info" Class="mb-4">
-            <MudText>Authentication Status: <strong>Logged in as @context.User.Identity.Name</strong></MudText>
-            <MudText>User ID: @currentUserId</MudText>
-            <MudText>Claims: @string.Join(", ", context.User.Claims.Select(c => $"{c.Type}={c.Value}"))</MudText>
-        </MudAlert>
-    </Authorized>
-    <NotAuthorized>
-        <MudAlert Severity="Severity.Warning" Class="mb-4">
-            <MudText>Authentication Status: <strong>Not logged in</strong></MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       OnClick="@(() => NavigationManager.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}"))">
-                Log In Now
-            </MudButton>
-        </MudAlert>
-    </NotAuthorized>
-</AuthorizeView>
-
-@if (isLoading)
-{
-    <div class="d-flex justify-center my-8">
-        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
-    </div>
-}
-else if (movie == null)
-{
-    <MudAlert Severity="Severity.Error" Class="my-4">
-        <i class="fas fa-exclamation-circle"></i> Movie not found or an error occurred while loading the data.
-    </MudAlert>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/movies">
-        Back to Movies
-    </MudButton>
-}
-else
-{
-    <!-- Movie Details Section -->
-    <MudGrid>
-        <!-- Movie Poster -->
-        <MudItem xs="12" sm="4" md="3">
-            <MudCard Elevation="3" Class="movie-poster-card">
-                <MudCardMedia Image="@GetPosterUrl()" Height="450" />
-            </MudCard>
-
-            <!-- Refresh Button -->
-            <MudButton Variant="Variant.Text" Color="Color.Primary"
-                       FullWidth="true"
-                       OnClick="@(() => LoadMovie(true))"
-                       StartIcon="@Icons.Material.Filled.Refresh"
-                       Class="mt-2">
-                Refresh Movie Data
-            </MudButton>
-        </MudItem>
-
-        <!-- Movie Info -->
-        <MudItem xs="12" sm="8" md="9">
-            <div class="mb-4">
-                <div class="d-flex justify-space-between align-center flex-wrap gap-2">
-                    <div>
-                        <MudText Typo="Typo.h3">@movie.Title</MudText>
-                        <MudText Typo="Typo.subtitle1" Class="mt-1">
-                            @movie.ReleaseDate.Year • @string.Join(", ", movie.Genres ?? new List<string>())
-                        </MudText>
-                    </div>
-
-                    <div class="d-flex align-center">
-                        <MudRating ReadOnly="true" SelectedValue="@((int)Math.Round(movie.AverageRating))" Color="Color.Primary" />
-                        <MudText Typo="Typo.h5" Class="ml-2">@movie.AverageRating.ToString("0.0")</MudText>
-                    </div>
-                </div>
-
-                <MudDivider Class="my-3" />
-
-                <!-- Movie Description -->
-                <MudText Typo="Typo.body1" Class="mt-4">@movie.Description</MudText>
-
-                <!-- Additional Details -->
-                <MudGrid Class="mt-4">
-                    @if (!string.IsNullOrEmpty(movie.Director))
-                    {
-                        <MudItem xs="12" sm="6">
-                            <MudText Typo="Typo.subtitle2">Director</MudText>
-                            <MudText Typo="Typo.body1">@movie.Director</MudText>
-                        </MudItem>
-                    }
-
-                    @if (movie.Actors != null && movie.Actors.Any())
-                    {
-                        <MudItem xs="12" sm="6">
-                            <MudText Typo="Typo.subtitle2">Cast</MudText>
-                            <MudText Typo="Typo.body1">@string.Join(", ", movie.Actors)</MudText>
-                        </MudItem>
-                    }
-                </MudGrid>
-
-                <!-- Action Buttons -->
-                <div class="d-flex gap-3 mt-6">
-                    <AuthorizeView>
-                        <Authorized>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                       OnClick="@(() => showReviewForm = !showReviewForm)"
-                                       StartIcon="@(showReviewForm ? Icons.Material.Filled.Close : Icons.Material.Filled.RateReview)">
-                                @(showReviewForm ? "Cancel Review" : "Write a Review")
-                            </MudButton>
-                        </Authorized>
-                        <NotAuthorized>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                       OnClick="@(() => NavigationManager.NavigateTo($"/login?returnUrl=/movie/{MovieId}"))"
-                                       StartIcon="@Icons.Material.Filled.RateReview">
-                                Login to Review
-                            </MudButton>
-                        </NotAuthorized>
-                    </AuthorizeView>
-
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                               Href="/movies"
-                               StartIcon="@Icons.Material.Filled.ArrowBack">
-                        Back to Movies
-                    </MudButton>
-                </div>
-            </div>
-        </MudItem>
-    </MudGrid>
-
-    <!-- Review Form Section -->
-    <AuthorizeView>
-        <Authorized>
-            @if (showReviewForm)
-            {
-                <MudDivider Class="my-6" />
-                <CreateReview MovieId="@MovieId" OnReviewSubmitted="HandleReviewSubmitted" CurrentUserId="@currentUserId" />
-            }
-        </Authorized>
-    </AuthorizeView>
-
-    <!-- Reviews Section -->
-    <MudDivider Class="my-6" />
-
-    @if (isLoadingReviews)
+<div class="main-content">
+    <!-- Ensure this wrapper is present -->
+    @if (isLoading)
     {
-        <div class="d-flex justify-center my-4">
-            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Medium" />
+        <div class="d-flex justify-center my-8">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
         </div>
+    }
+    else if (movie == null)
+    {
+        <MudAlert Severity="Severity.Error" Class="my-4">
+            <i class="fas fa-exclamation-circle"></i> Movie not found or an error occurred while loading the data.
+        </MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/movies">
+            Back to Movies
+        </MudButton>
     }
     else
     {
-        <div class="d-flex justify-space-between align-center mb-4">
-            <MudText Typo="Typo.h5">Reviews</MudText>
-            <MudButton Variant="Variant.Text" Color="Color.Primary"
-                       OnClick="@(() => LoadReviews(true))"
-                       StartIcon="@Icons.Material.Filled.Refresh">
-                Refresh Reviews
-            </MudButton>
-        </div>
+        <!-- Movie Details Section -->
+        <MudGrid>
+            <!-- Movie Poster -->
+            <MudItem xs="12" sm="4" md="3">
+                <MudCard Elevation="3" Class="movie-poster-card">
+                    <MudCardMedia Image="@GetPosterUrl()" Height="450" />
+                </MudCard>
 
+                <!-- Refresh Button -->
+                <MudButton Variant="Variant.Text" Color="Color.Primary"
+                           FullWidth="true"
+                           OnClick="@(() => LoadMovie(true))"
+                           StartIcon="@Icons.Material.Filled.Refresh"
+                           Class="mt-2">
+                    Refresh Movie Data
+                </MudButton>
+            </MudItem>
+
+            <!-- Movie Info -->
+            <MudItem xs="12" sm="8" md="9">
+                <div class="mb-4">
+                    <div class="d-flex justify-space-between align-center flex-wrap gap-2">
+                        <div>
+                            <MudText Typo="Typo.h3">@movie.Title</MudText>
+                            <MudText Typo="Typo.subtitle1" Class="mt-1">
+                                @movie.ReleaseDate.Year • @string.Join(", ", movie.Genres ?? new List<string>())
+                            </MudText>
+                        </div>
+
+                        <div class="d-flex align-center">
+                            <MudRating ReadOnly="true" SelectedValue="@((int)Math.Round(movie.AverageRating))" Color="Color.Primary" />
+                            <MudText Typo="Typo.h5" Class="ml-2">@movie.AverageRating.ToString("0.0")</MudText>
+                        </div>
+                    </div>
+
+                    <MudDivider Class="my-3" />
+
+                    <!-- Movie Description -->
+                    <MudText Typo="Typo.body1" Class="mt-4">@movie.Description</MudText>
+
+                    <!-- Additional Details -->
+                    <MudGrid Class="mt-4">
+                        @if (!string.IsNullOrEmpty(movie.Director))
+                        {
+                            <MudItem xs="12" sm="6">
+                                <MudText Typo="Typo.subtitle2">Director</MudText>
+                                <MudText Typo="Typo.body1">@movie.Director</MudText>
+                            </MudItem>
+                        }
+
+                        @if (movie.Actors != null && movie.Actors.Any())
+                        {
+                            <MudItem xs="12" sm="6">
+                                <MudText Typo="Typo.subtitle2">Cast</MudText>
+                                <MudText Typo="Typo.body1">@string.Join(", ", movie.Actors)</MudText>
+                            </MudItem>
+                        }
+                    </MudGrid>
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex gap-3 mt-6">
+                        <AuthorizeView>
+                            <Authorized>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                           OnClick="@(() => showReviewForm = !showReviewForm)"
+                                           StartIcon="@(showReviewForm ? Icons.Material.Filled.Close : Icons.Material.Filled.RateReview)">
+                                    @(showReviewForm ? "Cancel Review" : "Write a Review")
+                                </MudButton>
+                            </Authorized>
+                            <NotAuthorized>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                           OnClick="@(() => NavigationManager.NavigateTo($"/login?returnUrl=/movie/{MovieId}"))"
+                                           StartIcon="@Icons.Material.Filled.RateReview">
+                                    Login to Review
+                                </MudButton>
+                            </NotAuthorized>
+                        </AuthorizeView>
+
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                   Href="/movies"
+                                   StartIcon="@Icons.Material.Filled.ArrowBack">
+                            Back to Movies
+                        </MudButton>
+                    </div>
+                </div>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Review Form Section -->
         <AuthorizeView>
             <Authorized>
-                <ReviewList Reviews="@reviews" MovieId="@MovieId"
-                            ShowActions="true"
-                            CurrentUserId="@currentUserId"
-                            MovieTitles="@movieTitles"
-                            OnReviewUpdated="HandleReviewUpdated"
-                            OnReviewDeleted="HandleReviewDeleted" />
+                @if (showReviewForm)
+                {
+                    <MudDivider Class="my-6" />
+                    <CreateReview MovieId="@MovieId" OnReviewSubmitted="HandleReviewSubmitted" CurrentUserId="@currentUserId" />
+                }
             </Authorized>
-            <NotAuthorized>
-                <ReviewList Reviews="@reviews" MovieId="@MovieId"
-                            ShowActions="false"
-                            EmptyMessage="No reviews yet. Login to be the first to share your thoughts!" />
-            </NotAuthorized>
         </AuthorizeView>
+
+        <!-- Reviews Section -->
+        <MudDivider Class="my-6" />
+
+        @if (isLoadingReviews)
+        {
+            <div class="d-flex justify-center my-4">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Medium" />
+            </div>
+        }
+        else
+        {
+            <div class="d-flex justify-space-between align-center mb-4">
+                <MudText Typo="Typo.h5">Reviews</MudText>
+                <MudButton Variant="Variant.Text" Color="Color.Primary"
+                           OnClick="@(() => LoadReviews(true))"
+                           StartIcon="@Icons.Material.Filled.Refresh">
+                    Refresh Reviews
+                </MudButton>
+            </div>
+
+            <AuthorizeView>
+                <Authorized>
+                    <ReviewList Reviews="@reviews" MovieId="@MovieId"
+                                ShowActions="true"
+                                CurrentUserId="@currentUserId"
+                                MovieTitles="@movieTitles"
+                                OnReviewUpdated="HandleReviewUpdated"
+                                OnReviewDeleted="HandleReviewDeleted" />
+                </Authorized>
+                <NotAuthorized>
+                    <ReviewList Reviews="@reviews" MovieId="@MovieId"
+                                ShowActions="false"
+                                EmptyMessage="No reviews yet. Login to be the first to share your thoughts!" />
+                </NotAuthorized>
+            </AuthorizeView>
+        }
     }
-}
+</div>
 
 @code {
     // Add AuthStateProvider so we can diagnose auth issues

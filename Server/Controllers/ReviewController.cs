@@ -10,6 +10,7 @@ using MongoDB.Bson;
 using System.Linq;
 using System.Security.Claims;
 
+
 namespace CineScope.Server.Controllers
 {
     /// <summary>
@@ -35,19 +36,21 @@ namespace CineScope.Server.Controllers
         /// </summary>
         private readonly UserService _userService;
 
+        private readonly RecaptchaService _recaptchaService;
+
         /// <summary>
         /// Initializes a new instance of the ReviewController.
         /// </summary>
         /// <param name="reviewService">Injected review service</param>
         /// <param name="contentFilterService">Injected content filter service</param>
         /// <param name="userService">Injected user service</param>
-        public ReviewController(ReviewService reviewService, ContentFilterService contentFilterService, UserService userService)
+        public ReviewController(ReviewService reviewService, ContentFilterService contentFilterService, UserService userService, RecaptchaService recaptchaService)
         {
             _reviewService = reviewService;
             _contentFilterService = contentFilterService;
             _userService = userService;
+            _recaptchaService = recaptchaService;
         }
-
         /// <summary>
         /// GET: api/Review/movie/{movieId}
         /// Retrieves all reviews for a specific movie.
@@ -360,6 +363,98 @@ namespace CineScope.Server.Controllers
                 CreatedAt = review.CreatedAt,
                 Username = review.Username // This would be populated from a join in a real implementation
             };
+        }
+
+        /// <summary>
+        /// POST: api/Review/with-captcha
+        /// Creates a new review after content validation and reCAPTCHA verification.
+        /// </summary>
+        /// <param name="request">The review data with captcha response</param>
+        /// <returns>The created review with assigned ID</returns>
+        [HttpPost("with-captcha")]
+        [Authorize] // Require authentication
+        public async Task<ActionResult<ReviewDto>> CreateReviewWithCaptcha([FromBody] ReviewWithCaptchaRequest request)
+        {
+            try
+            {
+                // Verify reCAPTCHA
+                var isValidCaptcha = await _recaptchaService.VerifyAsync(request.RecaptchaResponse);
+                if (!isValidCaptcha)
+                {
+                    return BadRequest(new
+                    {
+                        Message = "reCAPTCHA verification failed. Please try again."
+                    });
+                }
+
+                // Get user identity from claims
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ??
+                                 User.FindFirst("sub");
+
+                if (userIdClaim == null)
+                {
+                    return Unauthorized(new { Message = "User identity could not be determined" });
+                }
+
+                // Force the userId to match the authenticated user
+                request.Review.UserId = userIdClaim.Value;
+
+                // Validate content against banned words
+                var contentValidation = await _contentFilterService.ValidateContentAsync(request.Review.Text);
+
+                // If content is not approved, return bad request
+                if (!contentValidation.IsApproved)
+                {
+                    return BadRequest(new
+                    {
+                        Message = "Review contains inappropriate content",
+                        ViolationWords = contentValidation.ViolationWords
+                    });
+                }
+
+                // Ensure movie ID is valid
+                if (!ObjectId.TryParse(request.Review.MovieId, out _))
+                {
+                    return BadRequest("Invalid movie ID format");
+                }
+
+                // Ensure user ID is valid
+                if (!ObjectId.TryParse(request.Review.UserId, out _))
+                {
+                    return BadRequest("Invalid user ID format");
+                }
+
+                // Map DTO to model
+                var review = new Review
+                {
+                    MovieId = request.Review.MovieId,
+                    UserId = userIdClaim.Value, // Use the authenticated user's ID
+                    Rating = request.Review.Rating,
+                    Text = request.Review.Text,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    IsApproved = true,
+                    FlaggedWords = Array.Empty<string>()
+                };
+
+                // Create the review in the database
+                var createdReview = await _reviewService.CreateReviewAsync(review);
+
+                // Update the movie's average rating
+                await _reviewService.UpdateMovieAverageRatingAsync(review.MovieId);
+
+                // Map back to DTO and return
+                var createdDto = MapToDto(createdReview);
+                createdDto.Username = request.Review.Username; // Preserve username from request
+
+                return CreatedAtAction(nameof(GetReviewById), new { id = createdReview.Id }, createdDto);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception in CreateReviewWithCaptcha: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return StatusCode(500, new { Error = $"Failed to create review: {ex.Message}" });
+            }
         }
     }
 }

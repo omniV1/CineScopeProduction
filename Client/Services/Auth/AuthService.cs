@@ -552,6 +552,59 @@ namespace CineScope.Client.Services.Auth
             }
         }
 
+        /// <summary>
+        /// Registers a new user with reCAPTCHA verification.
+        /// </summary>
+        /// <param name="registerRequest">The registration information</param>
+        /// <param name="recaptchaResponse">The reCAPTCHA response token</param>
+        /// <returns>Registration result</returns>
+        public async Task<AuthResponse> RegisterWithCaptchaAsync(RegisterRequest registerRequest, string recaptchaResponse)
+        {
+            try
+            {
+                Console.WriteLine($"Attempting registration with reCAPTCHA for user: {registerRequest.Username}");
+
+                // Create the request object
+                var requestObject = new
+                {
+                    RegisterRequest = registerRequest,
+                    RecaptchaResponse = recaptchaResponse
+                };
+
+                // Send registration request to the API
+                var response = await _httpClient.PostAsJsonAsync("api/Auth/register-with-captcha", requestObject);
+
+                Console.WriteLine($"Registration with captcha response status: {response.StatusCode}");
+
+                // Parse the response
+                var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
+
+                // If registration was successful, store the token and notify the auth state provider
+                if (result.Success)
+                {
+                    Console.WriteLine("Registration successful, updating authentication state");
+                    await _authStateProvider.NotifyUserAuthentication(result.Token, result.User);
+                }
+                else
+                {
+                    Console.WriteLine($"Registration failed: {result.Message}");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                // Return error response
+                Console.WriteLine($"Exception in RegisterWithCaptcha: {ex.Message}");
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = $"An error occurred during registration: {ex.Message}"
+                };
+            }
+        }
+
+
 
     }
 }

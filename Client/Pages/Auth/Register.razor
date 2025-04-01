@@ -5,6 +5,7 @@
 @inject AuthService AuthService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
 
 <PageTitle>CineScope - Register</PageTitle>
 
@@ -37,6 +38,11 @@
                                   Validation="@(new Func<string, IEnumerable<string>>(ValidateConfirmPassword))"
                                   Variant="Variant.Outlined" InputType="InputType.Password"
                                   Class="my-3" />
+
+                    <!-- reCAPTCHA element -->
+                    <div class="mt-4 mb-4">
+                        <div class="g-recaptcha" data-sitekey="6LczsgUrAAAAPC7YT5QIINbueIGE6GVjommFIBn"></div>
+                    </div>
 
                     @if (!string.IsNullOrEmpty(errorMessage))
                     {
@@ -149,8 +155,20 @@
             isLoading = true;
             errorMessage = string.Empty;
 
-            // Use the AuthService to register the user
-            var result = await AuthService.Register(registerRequest);
+            // Get reCAPTCHA response
+            var recaptchaResponse = await JSRuntime.InvokeAsync<string>(
+                "recaptchaFunctions.getResponse");
+
+            if (string.IsNullOrEmpty(recaptchaResponse))
+            {
+                errorMessage = "Please complete the reCAPTCHA verification.";
+                Snackbar.Add(errorMessage, Severity.Warning);
+                isLoading = false;
+                return;
+            }
+
+            // Use the AuthService to register the user with captcha
+            var result = await AuthService.RegisterWithCaptchaAsync(registerRequest, recaptchaResponse);
 
             if (result.Success)
             {
@@ -165,6 +183,9 @@
                 // Handle error response
                 errorMessage = result.Message ?? "Registration failed. Please try again.";
                 Snackbar.Add(errorMessage, Severity.Error);
+
+                // Reset the captcha
+                await JSRuntime.InvokeVoidAsync("recaptchaFunctions.reset");
             }
         }
         catch (Exception ex)
@@ -172,6 +193,9 @@
             // Handle exceptions
             errorMessage = "An error occurred during registration. Please try again.";
             Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+
+            // Reset the captcha
+            await JSRuntime.InvokeVoidAsync("recaptchaFunctions.reset");
         }
         finally
         {

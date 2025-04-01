@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CineScope.Server.Data;
 using CineScope.Server.Interfaces;
 using CineScope.Server.Models;
+using CineScope.Server.Services;
 using CineScope.Shared.Auth;
 using CineScope.Shared.DTOs;
 using Microsoft.AspNetCore.Authorization;
@@ -46,6 +47,8 @@ namespace CineScope.Server.Controllers
         /// </summary>
         private readonly IConfiguration _configuration;
 
+        private readonly RecaptchaService _recaptchaService;
+
         /// <summary>
         /// Initializes a new instance of the AuthController.
         /// </summary>
@@ -54,15 +57,17 @@ namespace CineScope.Server.Controllers
         /// <param name="options">Injected MongoDB settings</param>
         /// <param name="configuration">Injected application configuration</param>
         public AuthController(
-            IAuthService authService,
-            IMongoDbService mongoDbService,
-            IOptions<MongoDbSettings> options,
-            IConfiguration configuration)
+        IAuthService authService,
+        IMongoDbService mongoDbService,
+        IOptions<MongoDbSettings> options,
+        IConfiguration configuration,
+        RecaptchaService recaptchaService)
         {
             _authService = authService;
             _mongoDbService = mongoDbService;
             _settings = options.Value;
             _configuration = configuration;
+            _recaptchaService = recaptchaService;
         }
 
         /// <summary>
@@ -238,6 +243,54 @@ namespace CineScope.Server.Controllers
 
             // Return the serialized token
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        /// <summary>
+        /// POST: api/Auth/register-with-captcha
+        /// Handles user registration requests with reCAPTCHA verification.
+        /// </summary>
+        /// <param name="request">Registration information with captcha response</param>
+        /// <returns>Registration result with token if successful</returns>
+        [HttpPost("register-with-captcha")]
+        public async Task<ActionResult<AuthResponse>> RegisterWithCaptcha([FromBody] RegisterWithCaptchaRequest request)
+        {
+            // Validate the model state
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            // Verify reCAPTCHA
+            var isValidCaptcha = await _recaptchaService.VerifyAsync(request.RecaptchaResponse);
+            if (!isValidCaptcha)
+            {
+                return BadRequest(new AuthResponse
+                {
+                    Success = false,
+                    Message = "reCAPTCHA verification failed. Please try again."
+                });
+            }
+
+            // Validate that passwords match
+            if (request.RegisterRequest.Password != request.RegisterRequest.ConfirmPassword)
+            {
+                ModelState.AddModelError("ConfirmPassword", "Passwords do not match");
+                return BadRequest(ModelState);
+            }
+
+            // Attempt to register the user
+            var result = await _authService.RegisterAsync(request.RegisterRequest);
+
+            // Return appropriate response based on result
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+            else
+            {
+                // Return 400 Bad Request for registration failures
+                return BadRequest(result);
+            }
         }
     }
 }

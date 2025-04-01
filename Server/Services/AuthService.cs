@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
+using CineScope.Client.Services.Auth;
 using CineScope.Server.Data;
 using CineScope.Server.Interfaces;
 using CineScope.Server.Models;
@@ -32,6 +34,10 @@ namespace CineScope.Server.Services
         /// MongoDB settings from configuration.
         /// </summary>
         private readonly MongoDbSettings _settings;
+
+        private readonly HttpClient _httpClient;
+
+        private readonly AuthStateProvider _authStateProvider;
 
         /// <summary>
         /// Application configuration for JWT settings.
@@ -149,7 +155,7 @@ namespace CineScope.Server.Services
                 Id = user.Id,
                 Username = user.Username,
                 Email = user.Email,
-                ProfilePictureUrl = user.ProfilePictureUrl, 
+                ProfilePictureUrl = user.ProfilePictureUrl,
                 Roles = user.Roles
             };
 
@@ -220,7 +226,7 @@ namespace CineScope.Server.Services
                 Id = newUser.Id,
                 Username = newUser.Username,
                 Email = newUser.Email,
-                ProfilePictureUrl = newUser.ProfilePictureUrl, 
+                ProfilePictureUrl = newUser.ProfilePictureUrl,
                 Roles = newUser.Roles
             };
 
@@ -241,11 +247,16 @@ namespace CineScope.Server.Services
         /// <returns>JWT token string</returns>
         private string GenerateJwtToken(User user)
         {
-            // Get JWT configuration values
-            var jwtSecret = _configuration["JwtSettings:Secret"];
-            var jwtIssuer = _configuration["JwtSettings:Issuer"];
-            var jwtAudience = _configuration["JwtSettings:Audience"];
-            var jwtExpiryMinutes = int.Parse(_configuration["JwtSettings:ExpiryMinutes"]);
+            // Get JWT configuration values, handling both formats
+            var jwtSecret = _configuration["JwtSettings--Secret"] ?? _configuration["JwtSettings:Secret"];
+            var jwtIssuer = _configuration["JwtSettings--Issuer"] ?? _configuration["JwtSettings:Issuer"];
+            var jwtAudience = _configuration["JwtSettings--Audience"] ?? _configuration["JwtSettings:Audience"];
+            var jwtExpiryMinutesStr = _configuration["JwtSettings--ExpiryMinutes"] ?? _configuration["JwtSettings:ExpiryMinutes"];
+
+            if (string.IsNullOrEmpty(jwtSecret))
+                throw new InvalidOperationException("JWT Secret not configured.");
+
+            var jwtExpiryMinutes = !string.IsNullOrEmpty(jwtExpiryMinutesStr) ? int.Parse(jwtExpiryMinutesStr) : 60;
 
             // Create security key using the secret
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
@@ -291,6 +302,56 @@ namespace CineScope.Server.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
+        /// <summary>
+        /// Registers a new user with reCAPTCHA verification.
+        /// </summary>
+        /// <param name="registerRequest">The registration information</param>
+        /// <param name="recaptchaResponse">The reCAPTCHA response token</param>
+        /// <returns>Registration result</returns>
+        public async Task<AuthResponse> RegisterWithCaptchaAsync(RegisterRequest registerRequest, string recaptchaResponse)
+        {
+            try
+            {
+                Console.WriteLine($"Attempting registration with reCAPTCHA for user: {registerRequest.Username}");
 
+                // Create the request object
+                var requestObject = new
+                {
+                    RegisterRequest = registerRequest,
+                    RecaptchaResponse = recaptchaResponse
+                };
+
+                // Send registration request to the API
+                var response = await _httpClient.PostAsJsonAsync("api/Auth/register-with-captcha", requestObject);
+
+                Console.WriteLine($"Registration with captcha response status: {response.StatusCode}");
+
+                // Parse the response
+                var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
+
+                // If registration was successful, store the token and notify the auth state provider
+                if (result.Success)
+                {
+                    Console.WriteLine("Registration successful, updating authentication state");
+                    await _authStateProvider.NotifyUserAuthentication(result.Token, result.User);
+                }
+                else
+                {
+                    Console.WriteLine($"Registration failed: {result.Message}");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                // Return error response
+                Console.WriteLine($"Exception in RegisterWithCaptcha: {ex.Message}");
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = $"An error occurred during registration: {ex.Message}"
+                };
+            }
+        }
     }
 }

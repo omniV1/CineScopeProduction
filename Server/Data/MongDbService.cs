@@ -29,7 +29,7 @@ namespace CineScope.Server.Data
         /// </summary>
         /// <param name="options">MongoDB configuration options from appsettings.json</param>
         /// <param name="logger">Logger for recording operations</param>
-        public MongoDbService(IOptions<MongoDbSettings> options, ILogger<MongoDbService> logger)
+        public MongoDbService(IOptions<MongoDbSettings> options, ILogger<MongoDbService> logger, IConfiguration configuration)
         {
             _logger = logger;
 
@@ -38,10 +38,19 @@ namespace CineScope.Server.Data
                 // Extract settings from the injected options
                 var settings = options.Value;
 
+                // Get connection string from configuration or options
+                // This allows Key Vault to override the connection string with the dash format
+                var connectionString = configuration["MongoDbSettings--ConnectionString"] ?? settings.ConnectionString;
+
+                if (string.IsNullOrEmpty(connectionString))
+                {
+                    throw new InvalidOperationException("MongoDB connection string is empty or not configured.");
+                }
+
                 _logger.LogInformation("Initializing MongoDB connection to database: {Database}", settings.DatabaseName);
 
                 // Create MongoDB client settings with logging
-                var clientSettings = MongoClientSettings.FromConnectionString(settings.ConnectionString);
+                var clientSettings = MongoClientSettings.FromConnectionString(connectionString);
 
                 // Configure MongoDB driver logging (if needed)
                 // This is an instance-level configuration
